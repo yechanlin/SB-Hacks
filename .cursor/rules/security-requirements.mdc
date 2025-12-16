@@ -5,12 +5,40 @@ alwaysApply: false
 ---
 # Security Requirements
 
-Write the contents based on the YAML instructions.
+When creating or updating SECURITY.md files for starter apps, use the template from:
 
-## YAML Instructions
+**Reference:** `@project-template/SECURITY.md`
 
-```yaml
-security_policy:
-    description: "Deepgram's security policy can be found on our main website."
-    reference: "https://developers.deepgram.com/documentation/security/security-policy/"
-```
+This template includes:
+- Link to Deepgram's main security policy
+- Supply chain security measures (Node.js focused, but adaptable)
+- Package manager security configurations
+- Dependency pinning strategy
+- Snyk integration and local security checks
+- Lockfile protection practices
+- Security issue reporting procedures
+
+## Project-Specific Customizations
+
+Adjust the following based on your project:
+
+### For AWS/Cloud Projects
+Add after "Dependency Pinning Strategy" section:
+
+**AWS Credentials Security:**
+- Never commit `.env` with real credentials
+- Use IAM roles when possible
+- Rotate access keys regularly
+- Use least-privilege IAM policies
+- Store credentials in environment variables
+- Use AWS Secrets Manager for production
+
+**Required IAM Permissions:**
+- Document minimum required permissions for your service
+
+### For Local SDK Dependencies
+Add to "Dependency Pinning Strategy" section if using local file references:
+- Explain the local SDK path configuration
+- Document directory structure requirements
+- Note that paths may need adjustment per developer
+- Indicate when SDK will be replaced with npm version

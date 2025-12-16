@@ -5,20 +5,101 @@ alwaysApply: false
 ---
 # Repository Structure Requirements
 
-## Required Files
-- MUST have an app file, i.e. `index.ts`
-- MUST have a `README.md` file
-- MUST have a `deepgram.toml` file
-- MUST have a `LICENSE` file
-- MUST have a `CONTRIBUTING.md` file
-- MUST have a `SECURITY.md` file
-- MUST have a `CODE_OF_CONDUCT.md` file
-- MUST have a `.gitignore` file
-- MUST have a `sample.env` file
-- SHOULD have a dependency management file
-- COULD have a dependency lock file
+## Expected Structure
 
-## Sources
-- [Deepgram JS SDK Readme](mdc:node-voice-agent/https:/raw.githubusercontent.com/deepgram/deepgram-js-sdk/refs/heads/main/README.md)
-- [Deepgram OpenAPI Spec](mdc:node-voice-agent/https:/raw.githubusercontent.com/deepgram/deepgram-api-specs/refs/heads/main/openapi.yml)
-- @Deepgram AsyncAPI Spec
+**Every starter app MUST follow this structure:**
+
+```
+[project-name]/
+├── [docs]           → README.md, CONTRIBUTING.md, SECURITY.md, CODE_OF_CONDUCT.md, LICENSE
+├── [config]         → deepgram.toml, sample.env, .gitignore, .snyk
+├── [dependencies]   → Language-specific (see below)
+├── [main-app]       → Language-specific entry point
+└── frontend/        → (Optional) Web UI
+```
+
+## Language-Specific Files
+
+### Node.js
+- **Dependencies:** `package.json`, `pnpm-lock.yaml`, `.npmrc`
+- **Frontend app:** `frontend/index.html` → `frontend/main.js` (Vite entry point chain)
+- **Server app:** `server.js`
+- **Package manager:** pnpm (≥10.0.0) ONLY - NOT npm or yarn
+- **Key rules:** All dependencies pinned to exact versions (no `^` or `~`)
+
+### Python
+- **Dependencies:** `requirements.txt`, `pyproject.toml`, or `poetry.lock`
+- **Main app:** `app.py`, `main.py`, or `server.py`
+- **Package manager:** pip, poetry, or uv
+- **Key rules:** Pin all dependencies to exact versions
+- **Framework considerations:**
+  - Flask: Main app typically `app.py` or `run.py`
+  - Django: Main app `manage.py` with `settings.py` in project directory
+
+### Go
+- **Dependencies:** `go.mod`, `go.sum`
+- **Main app:** `main.go` or `server.go`
+- **Package manager:** go modules
+- **Key rules:** Use vendoring if appropriate
+
+### .NET
+- **Dependencies:** `*.csproj`, `*.sln`, `packages.lock.json`
+- **Main app:** `Program.cs` or `Startup.cs`
+- **Package manager:** NuGet
+- **Key rules:** Use lock file for dependency pinning
+
+### Rust
+- **Dependencies:** `Cargo.toml`, `Cargo.lock`
+- **Main app:** `main.rs` or `lib.rs` in `src/`
+- **Package manager:** cargo
+- **Key rules:** Commit Cargo.lock for applications
+
+### Java
+- **Dependencies:** `pom.xml` (Maven) or `build.gradle` (Gradle)
+- **Main app:** `Main.java` or `Application.java` in `src/main/java/`
+- **Package manager:** Maven or Gradle
+- **Key rules:** Commit lockfiles (`pom.xml.lock` or `gradle.lockfile`)
+
+### C++
+- **Dependencies:** `CMakeLists.txt`, `conanfile.txt`, or `vcpkg.json`
+- **Main app:** `main.cpp` or `main.cc` in `src/`
+- **Build system:** CMake, Meson, or Make
+- **Key rules:** Document build dependencies and toolchain requirements
+
+### Ruby
+- **Dependencies:** `Gemfile`, `Gemfile.lock`
+- **Main app:** `app.rb`, `server.rb`, or `config.ru` (Rack apps)
+- **Package manager:** Bundler
+- **Key rules:** Always commit `Gemfile.lock`
+
+### PHP
+- **Dependencies:** `composer.json`, `composer.lock`
+- **Main app:** `index.php` or `public/index.php`
+- **Package manager:** Composer
+- **Key rules:** Commit `composer.lock` for version consistency
+
+## Universal Requirements
+
+**MUST have (all languages):**
+- Documentation: `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `LICENSE`
+- Configuration: `deepgram.toml`, `sample.env`, `.gitignore`, `.snyk`
+- Dependencies pinned to exact versions
+- Language-specific dependency lockfile
+
+**MUST NOT have:**
+- Multiple package manager lockfiles (e.g., both `pnpm-lock.yaml` and `package-lock.json`)
+- Separate `config.js` files (use inline CONFIG object or environment variables)
+- Temporary files or old test scripts
+- Committed `.env` files (only `sample.env` should be tracked)
+
+## File-Specific Requirements
+
+For detailed requirements on individual files, see:
+- `@project-template/.cursor/rules/readme-requirements.mdc`
+- `@project-template/.cursor/rules/contributing-requirements.mdc`
+- `@project-template/.cursor/rules/security-requirements.mdc`
+- `@project-template/.cursor/rules/code-of-conduct.mdc`
+- `@project-template/.cursor/rules/env-requirements.mdc`
+- `@project-template/.cursor/rules/gitignore-requirements.mdc`
+- `@project-template/.cursor/rules/deepgram-toml.mdc`
+- `@project-template/.cursor/rules/license-requirements.mdc`

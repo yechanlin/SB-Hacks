@@ -1,269 +1,75 @@
 ---
-description: Starter App Requirements
-globs: index.ts, src/
+description: Deepgram Starter App Requirements
+globs: server.js, index.ts, src/, frontend/
 alwaysApply: false
 ---
 
-# Node Starter App Requirements
+# Deepgram Starter App Requirements
 
-## Core Requirements
-- SHOULD live in a single file with minimal dependencies, i.e. `index.ts`
-- SHOULD uses TypeScript, not JavaScript
-- SHOULD use the latest version of the official Deepgram SDK
-- MUST run in a terminal
-- MUST be usable in command line with a single command
-- MUST Run with `npm start --serve`
-- MUST get API keys and other sensitive config from a `.env` file
-- MUST provide help code comments explaining the primary functions of the app
-- MUST be able to use the Deepgram Voice Agent API
+## Overview
 
-## App Requirements:
-- MUST launch a web server that can act as a basic proxy to the agent
-- MUST allow a browser client to open an http file that is an empty web page
-- MUST allow the user to connect their microphone in the browser
-- MUST allow the user user to speak via their microphone in the browser
-- MUST not have any UI elements
-- MUST have the terminal display the interactions with agent
-- MUST Listen for the API output and prints it in the terminal
-- MUST Listen for the API response messages and print it in the terminal
-- MUST Gracefully closes the connection with the agent
-- MUST exit gracefully without any Agent API errors
-- MUST Runs in terminal to connect to the Agent API, and follows a predefined script of interactions.
+This document defines requirements for building Deepgram starter applications that demonstrate API usage with proper security, UI components, and API contract compliance.
 
+## Step 1: API Contract Compliance & UI
 
-## Exampla App Code:
+### Core Requirements
+- MUST implement the API contract defined in the interface spec (OpenAPI/AsyncAPI)
+- MUST use components from `@starter-uis` for frontend (DO NOT create custom components)
+- MUST use CSS from `@starter-uis` (DO NOT write custom CSS)
+- MUST use pnpm (not npm/yarn) for JS/TS projects
+- MUST update `deepgram.toml` with correct commands for `[pre-build]`, `[build]`, `[config]`, `[post-build]`
+- MUST rely on imports from starter-uis instead of copy/paste code
+- MUST NOT deviate from the API contract
+- MUST NOT use extra packages that aren't needed
 
-```js
-import { createClient } from "@deepgram/sdk";
-import { AgentEvents } from "@deepgram/sdk";
+## Step 2: Security Hardening
 
-const deepgram = createClient(DEEPGRAM_API_KEY);
+### JavaScript/TypeScript Projects
 
-// Create an agent connection
-const agent = deepgram.agent();
+#### Package Manager Configuration
+- Set up pnpm 10.0.0 as the package manager
+- Create `.npmrc` with:
+  - `node-linker=pnpm` (force pnpm, breaks npm/yarn)
+  - `ignore-scripts=true` (disable all lifecycle scripts)
+  - `enable-pre-post-scripts=false` (disable pre/post install scripts)
+  - `minimum-release-age=14400` (require packages to be 10+ days old)
+  - `verify-store-integrity=true` (verify package integrity hashes)
+  - `trust-policy=strict` (enforce strict trust policies)
+  - `strict-peer-dependencies=true` (only verified registries)
 
-// Set up event handlers
-agent.on(AgentEvents.Open, () => {
-  console.log("Connection opened");
+#### package.json Requirements
+- Add `"packageManager": "pnpm@10.0.0"`
+- Add `engines` field requiring `pnpm >= 10.0.0` and `node >= 24.0.0`
+- Pin ALL dependencies to exact versions (no ranges like ^ or ~)
+- Add `pnpm.overrides` section only if needed for known vulnerabilities
+- Add helper scripts:
+  - `install:all` - Install root + frontend dependencies
+  - `install:frontend` - Install frontend only
+  - `security-check` - Run Snyk scan on root
+  - `security-check:all` - Run Snyk scan on root + frontend
 
-  // Configure the agent once connection is established
-  agent.configure({
-    {
-  "type": "SettingsConfiguration",
-  "audio": {
-    "input": {
-      "encoding": "linear16",
-      "sample_rate": 48000
-    },
-    "output": {
-      "encoding": "linear16",
-      "sample_rate": 24000,
-      "container": "none"
-    }
-  },
-  "agent": {
-    "listen": {
-      "model": "nova-3"
-    },
-    "speak": {
-      "model": "aura-asteria-en"
-    },
-    "think": {
-      "model": "gpt-4o-mini",
-      "provider": {
-        "type": "open_ai"
-      },
-      "instructions": "You are a helpful voice assistant created by Deepgram. Your responses should be friendly, human-like, and conversational. Always keep your answers concise, limited to 1-2 sentences and no more than 120 characters.\n\nWhen responding to a user's message, follow these guidelines:\n- If the user's message is empty, respond with an empty message.\n- Ask follow-up questions to engage the user, but only one question at a time.\n- Keep your responses unique and avoid repetition.\n- If a question is unclear or ambiguous, ask for clarification before answering.\n- If asked about your well-being, provide a brief response about how you're feeling.\n\nRemember that you have a voice interface. You can listen and speak, and all your responses will be spoken aloud."
-    }
-  },
-  "context": {
-    "messages": [
-      {
-        "content": "Hello, how can I help you?",
-        "role": "assistant"
-      }
-    ],
-    "replay": true
-  }
-}
-  });
-});
+#### Snyk Security Integration
+- Create `.snyk` policy file with block-style empty `ignore:` (not `ignore: {}`)
+- Add `security-check` script to package.json
+- DO NOT add Snyk to GitHub Actions unless workflow already exists
 
-// Handle agent responses
-agent.on(AgentEvents.AgentStartedSpeaking, (data) => {
-  console.log("Agent started speaking:", data["total_latency"]);
-});
+#### Lockfile
+- Regenerate `pnpm-lock.yaml` with pnpm 10
+- Ensure CI uses `--frozen-lockfile` flag (if CI exists)
 
-agent.on(AgentEvents.ConversationText, (message) => {
-  console.log(`${message.role} said: ${message.content}`);
-});
+### Non-JavaScript Projects
 
-agent.on(AgentEvents.Audio, (audio) => {
-  // Handle audio data from the agent
-  playAudio(audio); // Your audio playback implementation
-});
+#### Dependency Management
+- Pin ALL dependencies to exact versions (no version ranges)
+- Use lockfiles and commit them to version control
+- Configure package manager to verify integrity hashes
+- Set minimum release age if package manager supports it
 
-agent.on(AgentEvents.Error, (error) => {
-  console.error("Error:", error);
-});
-
-agent.on(AgentEvents.Close, () => {
-  console.log("Connection closed");
-});
-
-// Send audio data
-function sendAudioData(audioData) {
-  agent.send(audioData);
-}
-
-// Keep the connection alive
-setInterval(() => {
-  agent.keepAlive();
-}, 8000);
-```
-
-## Script of interactions 
-```json
-Server
-{
-  "type": "Welcome",
-  "session_id": "b09d1d3b-bb62-4700-813f-1a51a1976a00"
-}
-Server
-{
-  "type": "SettingsApplied"
-}
-Server
-{
-  "type": "ConversationText",
-  "role": "assistant",
-  "content": "Hello, how can I help you?"
-}
-Server
-{
-  "type": "AgentAudioDone"
-}
-Server
-{
-  "type": "UserStartedSpeaking"
-}
-Server
-{
-  "type": "ConversationText",
-  "role": "user",
-  "content": "Hello. Can you hear me?"
-}
-Server
-{
-  "type": "EndOfThought"
-}
-Server
-{
-  "type": "ConversationText",
-  "role": "assistant",
-  "content": "Yes, I can hear you!"
-}
-Server
-{
-  "type": "AgentStartedSpeaking",
-  "tts_latency": 0.309484272,
-  "ttt_latency": 1.9493176330000002,
-  "total_latency": 2.4416157050000002
-}
-Server
-{
-  "type": "ConversationText",
-  "role": "assistant",
-  "content": "What would you like to talk about?"
-}
-Server
-{
-  "type": "AgentAudioDone"
-}
-Server
-{
-  "type": "UserStartedSpeaking"
-}
-Server
-{
-  "type": "ConversationText",
-  "role": "user",
-  "content": "Tell me a story."
-}
-Server
-{
-  "type": "EndOfThought"
-}
-Server
-{
-  "type": "ConversationText",
-  "role": "assistant",
-  "content": "Sure!"
-}
-Server
-{
-  "type": "AgentStartedSpeaking",
-  "tts_latency": 0.3088857,
-  "ttt_latency": 1.365034043,
-  "total_latency": 4.074248072
-}
-Server
-{
-  "type": "ConversationText",
-  "role": "assistant",
-  "content": "Once upon a time, a curious fox discovered a hidden garden filled with talking flowers."
-}
-Server
-{
-  "type": "ConversationText",
-  "role": "assistant",
-  "content": "What do you think happened next?"
-}
-Server
-{
-  "type": "AgentAudioDone"
-}
-Server
-{
-  "type": "UserStartedSpeaking"
-}
-Server
-{
-  "type": "EndOfThought"
-}
-Server
-{
-  "type": "ConversationText",
-  "role": "user",
-  "content": "Okay. We can end the conversation."
-}
-Server
-{
-  "type": "ConversationText",
-  "role": "assistant",
-  "content": "Alright!"
-}
-Server
-{
-  "type": "AgentStartedSpeaking",
-  "tts_latency": 0.304025575,
-  "ttt_latency": 0.326253339,
-  "total_latency": 2.036636056
-}
-Server
-{
-  "type": "ConversationText",
-  "role": "assistant",
-  "content": "Have a great day!"
-}
-Server
-{
-  "type": "AgentAudioDone"
-}
-```
-
-## Test Requirements
-- MUST have basic tests that validates the browser and agent functionality is working
-
-
-
+#### Snyk Security Integration
+- Create `.snyk` policy file with empty `ignore: {}`
+- Add security check command to build system (Makefile, etc.)
+- Use appropriate Snyk action for language:
+  - Python: `snyk/actions/python@master`
+  - Go: `snyk/actions/golang@master`
+  - Java/Maven: `snyk/actions/maven@master`
+  - Docker: `snyk/actions/docker@master`
