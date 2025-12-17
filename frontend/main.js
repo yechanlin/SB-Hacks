@@ -2,6 +2,7 @@
 const startButton = document.getElementById('startButton');
 const endButton = document.getElementById('endButton');
 const cancelButton = document.getElementById('cancelButton');
+const statusBanner = document.getElementById('statusBanner');
 const statusText = document.getElementById('statusText');
 const conversationHistory = document.getElementById('conversationHistory');
 
@@ -20,19 +21,34 @@ let isPlaying = false;
 
 // Update status display
 function updateStatus(status, message) {
-  statusText.className = `status-text ${status}`;
-  statusText.textContent = message;
+  // Update status banner
+  statusBanner.className = 'dg-status';
 
-  // Update button states
   if (status === 'connected') {
+    statusBanner.classList.add('dg-status--success');
     startButton.disabled = true;
     endButton.disabled = false;
-  } else if (status === 'disconnected' || status === 'error') {
+  } else if (status === 'disconnected') {
+    statusBanner.classList.add('dg-status--error');
     startButton.disabled = false;
     endButton.disabled = true;
   } else if (status === 'connecting') {
+    statusBanner.classList.add('dg-status--info');
     startButton.disabled = true;
     endButton.disabled = true;
+  } else if (status === 'error') {
+    statusBanner.classList.add('dg-status--error');
+    startButton.disabled = false;
+    endButton.disabled = true;
+  }
+
+  // Ensure statusText element exists and update message
+  // Always re-query to avoid stale reference after innerHTML changes
+  const currentStatusText = document.getElementById('statusText');
+  if (!currentStatusText) {
+    statusBanner.innerHTML = '<span id="statusText">' + message + '</span>';
+  } else {
+    currentStatusText.textContent = message;
   }
 }
 
@@ -237,7 +253,7 @@ async function connect() {
     socket.onopen = () => {
       console.log('WebSocket connected');
       isConnected = true;
-      updateStatus('connecting', 'CONNECTING');
+      // Don't update status here - wait for Welcome message
     };
 
     socket.onmessage = async (event) => {
