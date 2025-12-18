@@ -232,8 +232,6 @@ async function connect() {
         sampleRate: 24000,
         echoCancellation: true, // set to true for desktop microphones also works with headsets
         noiseSuppression: true, // set to true for desktop microphones also works with headsets
-        autoGainControl: true, // set to true for desktop microphones also works with headsets
-        latency: 0,
       };
     }
 
