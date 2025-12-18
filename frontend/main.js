@@ -16,8 +16,8 @@ let audioContext = null;
 let processor = null;
 let isConnected = false;
 let isRecording = false;
-let audioQueue = [];
-let isPlaying = false;
+let startTime = 0;
+let scheduledAudioSources = [];
 
 // Update status display
 function updateStatus(status, message) {
@@ -87,54 +87,73 @@ function convertFloatToPcm(floatData) {
   return pcmData;
 }
 
-// Play audio chunk
-async function playNextInQueue() {
-  if (audioQueue.length === 0) {
-    isPlaying = false;
-    return;
-  }
-
-  isPlaying = true;
-  const audioData = audioQueue.shift();
+// Play audio with scheduled timing (eliminates gaps between packets)
+async function playAudio(audioData) {
+  if (!audioContext) return;
 
   try {
     if (audioContext.state === 'suspended') {
       await audioContext.resume();
     }
 
-    // Create buffer with correct sample rate for agent's audio (24000Hz)
-    const buffer = audioContext.createBuffer(1, audioData.length, 24000);
-    const channelData = buffer.getChannelData(0);
+    const audioDataView = new Int16Array(audioData);
 
-    // Convert Int16 to Float32 with proper scaling
-    for (let i = 0; i < audioData.length; i++) {
-      channelData[i] = audioData[i] / (audioData[i] >= 0 ? 0x7FFF : 0x8000);
+    if (audioDataView.length === 0) {
+      console.error('Received audio data is empty.');
+      return;
+    }
+
+    // Create buffer with correct sample rate for agent's audio (24000Hz)
+    const audioBuffer = audioContext.createBuffer(1, audioDataView.length, 24000);
+    const audioBufferChannel = audioBuffer.getChannelData(0);
+
+    // Convert Int16 to Float32
+    for (let i = 0; i < audioDataView.length; i++) {
+      audioBufferChannel[i] = audioDataView[i] / 32768;
     }
 
     // Create and configure source
     const source = audioContext.createBufferSource();
-    source.buffer = buffer;
+    source.buffer = audioBuffer;
+    source.connect(audioContext.destination);
 
-    // Create gain node for volume control
-    const gainNode = audioContext.createGain();
-    gainNode.gain.value = 1.0;
+    // Schedule audio at precise time to eliminate gaps
+    const currentTime = audioContext.currentTime;
+    if (startTime < currentTime) {
+      startTime = currentTime;
+    }
+    source.start(startTime);
 
-    // Connect nodes
-    source.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-
-    // Handle playback completion
-    source.onended = () => {
-      playNextInQueue();
-    };
-
-    // Start playback
-    source.start(0);
+    // Update start time for next audio packet (seamless queueing)
+    startTime = startTime + audioBuffer.duration;
+    scheduledAudioSources.push(source);
   } catch (error) {
     console.error('Error playing audio:', error);
-    isPlaying = false;
-    playNextInQueue();
   }
+}
+
+// Clear all scheduled audio (called when user interrupts)
+function clearScheduledAudio() {
+  if (!audioContext) return;
+
+  scheduledAudioSources.forEach((source) => {
+    try {
+      source.stop();
+      source.onended = null;
+    } catch (e) {
+      // Source may have already ended or not started yet
+    }
+  });
+  scheduledAudioSources = [];
+
+  const scheduledAudioMs = Math.round(
+    1000 * (startTime - audioContext.currentTime)
+  );
+  if (scheduledAudioMs > 0) {
+    console.log(`Cleared ${scheduledAudioMs}ms of scheduled audio`);
+  }
+
+  startTime = 0;
 }
 
 // Start audio streaming to server
@@ -182,8 +201,6 @@ async function startStreaming() {
 
 // Stop audio streaming
 function stopStreaming() {
-  audioQueue = [];
-  isPlaying = false;
   isRecording = false;
 
   if (processor) {
@@ -211,9 +228,13 @@ async function connect() {
     // Firefox: Use native sample rate to avoid mismatch error
     // Chrome/Safari: Use 16000 Hz for microphone input
     if (isFirefox) {
-      audioContext = new AudioContext(); // Let Firefox use hardware native rate
+      audioContext = new AudioContext({
+      });
     } else {
-      audioContext = new AudioContext({ sampleRate: 16000 });
+      audioContext = new AudioContext({
+        sampleRate: 16000,
+        latencyHint: 'interactive' // Optimize for low latency real-time audio
+      });
     }
 
     // Browser-specific audio constraints
@@ -263,22 +284,14 @@ async function connect() {
         // Binary audio data as Blob (some browsers send as Blob)
         try {
           const arrayBuffer = await event.data.arrayBuffer();
-          const audioData = new Int16Array(arrayBuffer);
-          audioQueue.push(audioData);
-          if (!isPlaying) {
-            playNextInQueue();
-          }
+          playAudio(arrayBuffer);
         } catch (error) {
           console.error('Error processing audio response:', error);
         }
       } else if (event.data instanceof ArrayBuffer) {
         // Binary audio data as ArrayBuffer (direct binary)
         try {
-          const audioData = new Int16Array(event.data);
-          audioQueue.push(audioData);
-          if (!isPlaying) {
-            playNextInQueue();
-          }
+          playAudio(event.data);
         } catch (error) {
           console.error('Error processing audio:', error);
         }
@@ -331,7 +344,7 @@ Remember that you have a voice interface. You can listen and speak, and all your
                 speak: {
                   provider: {
                     type: 'deepgram',
-                    model: 'aura-2-thalia-en'
+                    model: 'aura-2-luna-en'
                   }
                 }
               }
@@ -383,6 +396,7 @@ Remember that you have a voice interface. You can listen and speak, and all your
 // Disconnect
 function disconnect() {
   stopStreaming();
+  clearScheduledAudio();
 
   if (socket) {
     socket.close();
