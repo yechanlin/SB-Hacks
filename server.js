@@ -175,6 +175,13 @@ wss.on('connection', async (clientWs) => {
       }
     });
 
+    // Forward InjectionRefused events from Deepgram to client
+    agent.on('InjectionRefused', (data) => {
+      if (clientWs.readyState === 1) {
+        clientWs.send(JSON.stringify(data));
+      }
+    });
+
     // Handle agent close
     agent.on('Close', () => {
       console.log('Deepgram agent connection closed');
@@ -260,9 +267,12 @@ wss.on('connection', async (clientWs) => {
 
             // Configure the agent with the provided settings
             deepgramAgent.configure(message);
+          } else if (message.type === 'InjectUserMessage') {
+            // Use SDK method for injecting user messages
+            deepgramAgent.injectUserMessage(message.content);
           } else {
-            // Forward other JSON messages as-is
-            deepgramAgent.send(data);
+            // Forward other JSON messages as-is (send as string, not buffer)
+            deepgramAgent.send(JSON.stringify(message));
           }
         }
       } catch (error) {
