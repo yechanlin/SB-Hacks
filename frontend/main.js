@@ -103,28 +103,9 @@ async function playAudio(audioData) {
   if (!audioContext) return;
 
   try {
-    // #region agent log - REMOVE THIS
-    const logId = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    const entryTime = audioContext.currentTime;
-    fetch('http://127.0.0.1:7243/ingest/0ab9a2fa-7ce2-4b0f-8fe0-dd19b3e35560', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'main.js:playAudio_entry', message: 'Function entry', data: { logId, startTime, currentTime: entryTime, timeDiff: (startTime - entryTime), scheduledCount: scheduledAudioSources.length }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'A' }) }).catch(() => { });
-    // #endregion
-
-    // #region agent log
-    const stateBeforeResume = audioContext.state;
-    fetch('http://127.0.0.1:7243/ingest/0ab9a2fa-7ce2-4b0f-8fe0-dd19b3e35560', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'main.js:playAudio_state', message: 'AudioContext state check', data: { logId, state: stateBeforeResume, contextSampleRate: audioContext.sampleRate, bufferSampleRate: 24000, baseLatency: audioContext.baseLatency, outputLatency: audioContext.outputLatency }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'B,J' }) }).catch(() => { });
-    // #endregion
-
     if (audioContext.state === 'suspended') {
       await audioContext.resume();
     }
-
-    // #region agent log - REMOVE THIS
-    const byteView = new Uint8Array(audioData);
-    const byteLength = audioData.byteLength;
-    const first16Bytes = Array.from(byteView.slice(0, 16));
-    const isEvenLength = byteLength % 2 === 0;
-    fetch('http://127.0.0.1:7243/ingest/0ab9a2fa-7ce2-4b0f-8fe0-dd19b3e35560', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'main.js:playAudio_raw_bytes', message: 'Raw ArrayBuffer inspection', data: { logId, byteLength, isEvenLength, first16Bytes, wasReset: (startTime < audioContext.currentTime) }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'F,G,H' }) }).catch(() => { });
-    // #endregion
 
     const audioDataView = new Int16Array(audioData);
 
@@ -132,13 +113,6 @@ async function playAudio(audioData) {
       console.error('Received audio data is empty.');
       return;
     }
-
-    // #region agent log - REMOVE THIS
-    const firstInt16 = audioDataView[0];
-    const lastInt16 = audioDataView[audioDataView.length - 1];
-    const first4Samples = Array.from(audioDataView.slice(0, 4));
-    fetch('http://127.0.0.1:7243/ingest/0ab9a2fa-7ce2-4b0f-8fe0-dd19b3e35560', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'main.js:playAudio_samples', message: 'Raw sample values', data: { logId, firstInt16, lastInt16, first4Samples, length: audioDataView.length }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'C,F' }) }).catch(() => { });
-    // #endregion
 
     // Create buffer with correct sample rate for agent's audio (24000Hz)
     const audioBuffer = audioContext.createBuffer(1, audioDataView.length, 24000);
@@ -149,49 +123,22 @@ async function playAudio(audioData) {
       audioBufferChannel[i] = audioDataView[i] / 32768;
     }
 
-    // #region agent log - REMOVE THIS
-    const firstFloat32 = audioBufferChannel[0];
-    const lastFloat32 = audioBufferChannel[audioBufferChannel.length - 1];
-    fetch('http://127.0.0.1:7243/ingest/0ab9a2fa-7ce2-4b0f-8fe0-dd19b3e35560', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'main.js:playAudio_converted', message: 'Converted sample values', data: { logId, firstFloat32, lastFloat32, duration: audioBuffer.duration }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'C,E' }) }).catch(() => { });
-    // #endregion
-
     // Create and configure source
     const source = audioContext.createBufferSource();
     source.buffer = audioBuffer;
-
-    // #region agent log - REMOVE THIS
-    const beforeConnect = performance.now();
-    // #endregion
-
     source.connect(audioContext.destination);
-
-    // #region agent log - REMOVE THIS
-    const afterConnect = performance.now();
-    fetch('http://127.0.0.1:7243/ingest/0ab9a2fa-7ce2-4b0f-8fe0-dd19b3e35560', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'main.js:playAudio_connection', message: 'Source connection timing', data: { logId, connectDuration: (afterConnect - beforeConnect) }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'D' }) }).catch(() => { });
-    // #endregion
 
     // Schedule audio at precise time to eliminate gaps
     const currentTime = audioContext.currentTime;
-    const wasReset = startTime < currentTime;
-    const oldStartTime = startTime;
-
     if (startTime < currentTime) {
       startTime = currentTime;
     }
-
-    // #region agent log - REMOVE THIS
-    fetch('http://127.0.0.1:7243/ingest/0ab9a2fa-7ce2-4b0f-8fe0-dd19b3e35560', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'main.js:playAudio_schedule', message: 'Scheduling audio', data: { logId, wasReset, oldStartTime, newStartTime: startTime, currentTime, gap: (startTime - currentTime) }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'I' }) }).catch(() => { });
-    // #endregion
 
     source.start(startTime);
 
     // Update start time for next audio packet (seamless queueing)
     startTime = startTime + audioBuffer.duration;
     scheduledAudioSources.push(source);
-
-    // #region agent log - REMOVE THIS
-    fetch('http://127.0.0.1:7243/ingest/0ab9a2fa-7ce2-4b0f-8fe0-dd19b3e35560', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'main.js:playAudio_exit', message: 'Function exit', data: { logId, nextStartTime: startTime, totalScheduled: scheduledAudioSources.length }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'A' }) }).catch(() => { });
-    // #endregion
   } catch (error) {
     console.error('Error playing audio:', error);
   }
@@ -301,9 +248,6 @@ async function connect() {
         latencyHint: 'interactive' // Optimize for low latency real-time audio
       });
     }
-
-    // Make audioContext globally accessible for debug tools - REMOVE THIS
-    window.audioContext = audioContext;
 
     // Browser-specific audio constraints
     let audioConstraints;
@@ -415,7 +359,7 @@ Remember that you have a voice interface. You can listen and speak, and all your
                     model: 'aura-2-luna-en'
                   }
                 },
-                greeting: "Hello! How can I help you today?" // test the greeting
+                greeting: "Hello! How can I help you today?"
               }
             };
 
@@ -435,9 +379,6 @@ Remember that you have a voice interface. You can listen and speak, and all your
             updateStatus('connected', 'CONNECTED');
           } else if (message.type === 'AgentAudioDone') {
             updateStatus('connected', 'CONNECTED');
-            // #region agent log - REMOVE THIS
-            fetch('http://127.0.0.1:7243/ingest/0ab9a2fa-7ce2-4b0f-8fe0-dd19b3e35560', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'main.js:AgentAudioDone', message: 'Phrase boundary - next audio will be new phrase', data: { startTime, currentTime: audioContext?.currentTime, scheduledCount: scheduledAudioSources.length }, timestamp: Date.now(), sessionId: 'debug-session', hypothesisId: 'A,B' }) }).catch(() => { });
-            // #endregion
           } else if (message.type === 'InjectionRefused') {
             console.warn('Message injection was refused - user may be speaking or agent responding');
             updateStatus('connected', 'CONNECTED - Message not sent (agent is speaking or user is talking)');
