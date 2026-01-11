@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@theme {
+  --font-jura: 'Jura', sans-serif;
+  
+  --color-interview-purple: #667eea;
+  --color-interview-dark-purple: #764ba2;
+  --color-interview-pink: #f093fb;
+}
+
+

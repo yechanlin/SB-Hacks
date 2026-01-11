@@ -1,64 +1,68 @@
-# Node Voice Agent Starter
+# AI Mock Interview Agent
 
-Voice Agent Demo using Deepgram's API with Node.js backend and web frontend.
+An intelligent interview practice platform powered by Deepgram's Voice Agent API. Features real-time voice or text-based interviews with AI-driven behavioral and technical questions, resume analysis, and interview coaching.
+
+## Features
+
+- Real-time voice and text interview modes
+- Resume upload with PDF/TXT support for personalized questions
+- Multiple interview types: behavioral, technical, system design, and mixed
+- Configurable difficulty levels from entry to lead positions
+- Interview time tracking with automatic notifications
+- Smart interruption detection for rambling responses
+- Live conversation history with transcript display
 
 ## Prerequisites
 
-- [Deepgram API Key](https://console.deepgram.com/signup?jump=keys) (sign up for free)
+- [Deepgram API Key](https://console.deepgram.com/signup?jump=keys)
 - Node.js 24.0.0+
 - pnpm 10.0.0+
 
-**Note:** This project uses strict supply chain security measures. npm and yarn will NOT work. See [SECURITY.md](SECURITY.md) for details.
+## Setup
 
-## Quickstart
-
-1. **Install dependencies**
+**1. Clone and install dependencies**
 
 ```bash
-# Option 1: Use the helper script (recommended)
-pnpm run install:all
-
-# Option 2: Manual two-step install
+git clone https://github.com/yechanlin/SB-Hacks.git
+cd SB-Hacks
 pnpm install
 cd frontend && pnpm install && cd ..
 ```
 
-**Note:** Due to security settings (`ignore-scripts=true`), frontend dependencies must be installed separately. The `install:all` script handles both steps. See [SECURITY.md](SECURITY.md) for details.
+**2. Configure environment**
 
-3. **Set your API key**
-
-Create a `.env` file:
+Create a `.env` file in the root directory:
 
 ```bash
 DEEPGRAM_API_KEY=your_api_key_here
 ```
 
-4. **Run the app**
+**3. Run the application**
 
-**Development mode** (with hot reload):
+Development mode with hot reload:
 
 ```bash
 pnpm dev
 ```
 
-**Production mode** (build and serve):
+Production mode:
 
 ```bash
 pnpm build
 pnpm start
 ```
 
-### 🌐 Open the App
+**4. Access the application**
 
-[http://localhost:3000](http://localhost:3000)
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## How It Works
+## Tech Stack
 
-- Establishes a WebSocket connection to `/agent/converse` endpoint
-- Proxies bidirectional communication between your browser and Deepgram's Agent API
-- Captures microphone audio and streams it to the voice agent
-- Receives and plays back the agent's audio responses
-- Displays real-time conversation transcripts showing both user and agent messages
+- **Frontend**: React 18, Vite, Tailwind CSS v4
+- **Backend**: Node.js with Express
+- **Voice AI**: Deepgram Voice Agent API (Speech-to-Text, GPT-4, Text-to-Speech)
+- **Audio**: Web Audio API for microphone input and audio playback
+- **PDF Processing**: PDF.js for client-side resume parsing
 
 ## Getting Help
 
