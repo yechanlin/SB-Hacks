@@ -20,6 +20,8 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { connectDB } from './backend/db.js';
+import sessionsRouter from './backend/routes/sessions.js';
 
 // Load environment variables
 dotenv.config();
@@ -32,7 +34,7 @@ const CONFIG = {
   deepgramApiKey: process.env.DEEPGRAM_API_KEY,
   port: process.env.PORT || 3000,
   host: process.env.HOST || '0.0.0.0',
-  vitePort: process.env.VITE_PORT,
+  vitePort: process.env.VITE_PORT || 5173, // Default Vite port
   isDevelopment: process.env.NODE_ENV === 'development',
 };
 
@@ -45,16 +47,30 @@ if (!CONFIG.deepgramApiKey) {
 // Initialize Express
 const app = express();
 
-// Development: Proxy to Vite dev server
+// Middleware for JSON parsing
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Don't connect here - wait for server to start first
+// MongoDB connection happens in server.listen callback
+
+// API Routes - Mount BEFORE proxy to avoid proxying API requests
+app.use('/api/sessions', sessionsRouter);
+
+// Development: Proxy to Vite dev server (only non-API routes)
 // Production: Serve static files
 if (CONFIG.isDevelopment) {
   console.log(`Development mode: Proxying to Vite dev server on port ${CONFIG.vitePort}`);
+  // Use filter option to exclude API routes from proxying
   app.use(
-    '/',
     createProxyMiddleware({
       target: `http://localhost:${CONFIG.vitePort}`,
       changeOrigin: true,
       ws: true, // Enable WebSocket proxying for Vite HMR
+      filter: (pathname, req) => {
+        // Don't proxy API routes or WebSocket endpoints - handle by Express
+        return !pathname.startsWith('/api') && !pathname.startsWith('/agent');
+      }
     })
   );
 } else {
@@ -328,9 +344,19 @@ wss.on('connection', async (clientWs) => {
 });
 
 // Start the server
-server.listen(CONFIG.port, CONFIG.host, () => {
+server.listen(CONFIG.port, CONFIG.host, async () => {
   console.log(`Server running at http://localhost:${CONFIG.port}`);
   console.log(`WebSocket endpoint: ws://localhost:${CONFIG.port}/agent/converse`);
+  console.log(`API endpoint: http://localhost:${CONFIG.port}/api/sessions`);
+
+  // Connect to MongoDB
+  try {
+    await connectDB();
+  } catch (error) {
+    console.error('Failed to connect to MongoDB:', error);
+    console.error('Server will continue but database features will not work');
+  }
+
   if (CONFIG.isDevelopment) {
     console.log(`Make sure Vite dev server is running on port ${CONFIG.vitePort}`);
     console.log(`\n⚠️  Open your browser to http://localhost:${CONFIG.port}`);
