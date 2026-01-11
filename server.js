@@ -23,7 +23,7 @@ import { fileURLToPath } from 'url';
 import { connectDB } from './backend/db.js';
 import sessionsRouter from './backend/routes/sessions.js';
 
-// Load environment variables
+// Load environment variables (db.js also loads them, but this ensures they're loaded)
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -349,13 +349,8 @@ server.listen(CONFIG.port, CONFIG.host, async () => {
   console.log(`WebSocket endpoint: ws://localhost:${CONFIG.port}/agent/converse`);
   console.log(`API endpoint: http://localhost:${CONFIG.port}/api/sessions`);
 
-  // Connect to MongoDB
-  try {
-    await connectDB();
-  } catch (error) {
-    console.error('Failed to connect to MongoDB:', error);
-    console.error('Server will continue but database features will not work');
-  }
+  // Connect to MongoDB (errors are handled in connectDB)
+  await connectDB();
 
   if (CONFIG.isDevelopment) {
     console.log(`Make sure Vite dev server is running on port ${CONFIG.vitePort}`);

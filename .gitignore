@@ -27,3 +27,6 @@ yarn-error.log*
 config.json
 
 .env
+
+# MongoDB local data
+/data
