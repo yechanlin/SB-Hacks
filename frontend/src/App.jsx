@@ -21,6 +21,7 @@ function App() {
     status,
     messages,
     interviewStats,
+    sessionId,
     startInterview,
     endInterview,
     resetInterview,
@@ -60,6 +61,7 @@ function App() {
           resetInterview={resetInterview}
           sendTextResponse={sendTextResponse}
           onBack={() => setPage('landing')}
+          sessionId={sessionId}
         />
       )}
     </div>

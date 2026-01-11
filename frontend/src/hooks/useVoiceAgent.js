@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createSession, addConversation, endSession } from '../utils/api';
 
 export function useVoiceAgent(config) {
   const [isConnected, setIsConnected] = useState(false);
   const [status, setStatus] = useState('DISCONNECTED');
   const [messages, setMessages] = useState([]);
+  const [sessionId, setSessionId] = useState(null);
   const [interviewStats, setInterviewStats] = useState({
     isActive: false,
     questionsCount: 0,
@@ -25,6 +27,7 @@ export function useVoiceAgent(config) {
   const startTimeRef = useRef(0);
   const gainNodeRef = useRef(null);
   const gainConnectedRef = useRef(false);
+  const sessionIdRef = useRef(null); // Use ref to avoid stale closure issues
 
   const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 
@@ -33,21 +36,42 @@ export function useVoiceAgent(config) {
     setStatus(text);
   }, []);
 
-  // Add message to conversation
-  const addMessage = useCallback((role, content) => {
-    setMessages(prev => [...prev, {
+  // Add message to conversation (both local state and backend)
+  const addMessage = useCallback((role, content, metadata = {}) => {
+    const message = {
       role,
       content,
       timestamp: new Date().toLocaleTimeString()
-    }]);
-    
+    };
+
+    setMessages(prev => [...prev, message]);
+
     if (role === 'interviewer') {
       setInterviewStats(prev => ({
         ...prev,
         questionsCount: prev.questionsCount + 1
       }));
     }
-  }, []);
+
+    // Save to backend if session exists (fire and forget)
+    // Use ref to get latest sessionId value (avoids stale closure)
+    const currentSessionId = sessionIdRef.current || sessionId;
+    if (currentSessionId) {
+      const backendRole = role === 'interviewer' ? 'assistant' : 'user';
+      console.log(`💾 Attempting to save conversation: ${role} (sessionId: ${currentSessionId})`);
+      addConversation(currentSessionId, backendRole, content, {
+        ...metadata,
+        isQuestion: role === 'interviewer' && metadata.isQuestion !== false
+      }).then(() => {
+        console.log(`✅ Conversation saved successfully: ${role} - ${content.substring(0, 50)}...`);
+      }).catch(error => {
+        console.error('❌ Error saving conversation to backend:', error);
+        // Don't throw - just log, continue with local state
+      });
+    } else {
+      console.warn('⚠️ Cannot save conversation - sessionId is null (state:', sessionId, ', ref:', sessionIdRef.current, ')');
+    }
+  }, [sessionId]);
 
   // Convert Float32 PCM to Int16 PCM
   const convertFloatToPcm = (floatData) => {
@@ -122,7 +146,7 @@ export function useVoiceAgent(config) {
   const startInterviewTimer = useCallback(() => {
     interviewStartTimeRef.current = Date.now();
     lastTimeCheckMinuteRef.current = 0;
-    
+
     setInterviewStats(prev => ({
       ...prev,
       isActive: true,
@@ -149,10 +173,10 @@ export function useVoiceAgent(config) {
     if (!interviewStartTimeRef.current || !socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
       return;
     }
-    
+
     const elapsed = Date.now() - interviewStartTimeRef.current;
     const currentMinute = Math.floor(elapsed / 60000);
-    
+
     if (currentMinute !== lastTimeCheckMinuteRef.current && [5, 10, 15].includes(currentMinute)) {
       const timeRemaining = 20 - currentMinute;
       const contextMessage = {
@@ -267,7 +291,7 @@ export function useVoiceAgent(config) {
 
     const roleName = roleNames[cfg.role] || 'Software Engineer';
     const companyName = cfg.companyName || 'a growing tech company';
-    
+
     const resumeContext = cfg.resumeContent ? `\n\nCANDIDATE'S RESUME/BACKGROUND:\n${cfg.resumeContent.substring(0, 3000)}\n\nUse the above resume to:\n- Ask specific questions about their listed experiences and projects\n- Probe deeper into technologies and skills they mention\n- Reference their past roles and accomplishments naturally\n- Tailor questions to match their background and expertise level\n- Connect their experience to the role they're interviewing for\n` : '';
 
     const experienceLevel = {
@@ -323,6 +347,25 @@ Critical behaviors:
   const startInterview = useCallback(async () => {
     try {
       updateStatus('connecting', 'CONNECTING');
+
+      // Create session in backend
+      try {
+        const sessionResponse = await createSession(config, {
+          fileName: '',
+          content: config.resumeContent || ''
+        });
+        if (sessionResponse.success && sessionResponse.session) {
+          const newSessionId = sessionResponse.session.sessionId;
+          setSessionId(newSessionId);
+          sessionIdRef.current = newSessionId; // Update ref as well
+          console.log('✅ Session created successfully:', newSessionId);
+        } else {
+          console.error('❌ Session creation failed - no session returned');
+        }
+      } catch (error) {
+        console.error('Error creating session:', error);
+        // Continue with interview even if session creation fails
+      }
 
       // Reset playback scheduling state to avoid stale start times between sessions
       startTimeRef.current = 0;
@@ -436,7 +479,9 @@ Critical behaviors:
               startInterviewTimer();
               startStreaming();
             } else if (message.type === 'ConversationText') {
-              addMessage(message.role === 'user' ? 'user' : 'interviewer', message.content);
+              const role = message.role === 'user' ? 'user' : 'interviewer';
+              const isQuestion = role === 'interviewer';
+              addMessage(role, message.content, { isQuestion });
             } else if (message.type === 'Error') {
               console.error('Agent error:', message);
               updateStatus('error', 'ERROR: ' + message.description);
@@ -480,12 +525,12 @@ Critical behaviors:
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN || !userSpeakingStartTimeRef.current) {
       return;
     }
-    
+
     const contextMessage = {
       type: 'InjectAgentContext',
       content: '[SYSTEM: User has been speaking for over 90 seconds. Politely interrupt NOW with phrases like "That\'s great context, let me stop you there for a moment..." or "I appreciate all that detail - can I ask you specifically about..."]'
     };
-    
+
     socketRef.current.send(JSON.stringify(contextMessage));
     userSpeakingStartTimeRef.current = null;
   };
@@ -510,10 +555,26 @@ Critical behaviors:
   }, []);
 
   // End interview
-  const endInterview = useCallback(() => {
+  const endInterview = useCallback(async () => {
     stopStreaming();
     clearScheduledAudio();
     stopInterviewTimer();
+
+    // End session in backend
+    if (sessionId) {
+      try {
+        await endSession(sessionId, {
+          questionCount: interviewStats.questionsCount,
+          totalMessages: messages.length,
+          userMessages: messages.filter(m => m.role === 'user').length,
+          agentMessages: messages.filter(m => m.role === 'interviewer').length
+        });
+        console.log('Session ended:', sessionId);
+      } catch (error) {
+        console.error('Error ending session:', error);
+        // Continue even if session end fails
+      }
+    }
 
     gainConnectedRef.current = false;
     gainNodeRef.current = null;
@@ -525,12 +586,14 @@ Critical behaviors:
 
     setIsConnected(false);
     updateStatus('disconnected', 'DISCONNECTED');
-  }, [stopStreaming, stopInterviewTimer, updateStatus]);
+  }, [stopStreaming, stopInterviewTimer, updateStatus, sessionId, interviewStats, messages]);
 
   // Reset interview
   const resetInterview = useCallback(() => {
     endInterview();
     setMessages([]);
+    setSessionId(null);
+    sessionIdRef.current = null; // Clear ref as well
     setInterviewStats({
       isActive: false,
       questionsCount: 0,
@@ -556,15 +619,37 @@ Critical behaviors:
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      endInterview();
+      // Cleanup on unmount - use refs to avoid dependency issues
+      if (silentFrameIntervalRef.current) {
+        clearInterval(silentFrameIntervalRef.current);
+      }
+      if (durationIntervalRef.current) {
+        clearInterval(durationIntervalRef.current);
+      }
+      if (timeCheckIntervalRef.current) {
+        clearInterval(timeCheckIntervalRef.current);
+      }
+      if (processorRef.current) {
+        processorRef.current.disconnect();
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+      if (socketRef.current) {
+        socketRef.current.close();
+      }
     };
-  }, [endInterview]);
+  }, []); // Empty dependency array - only run on mount/unmount
 
   return {
     isConnected,
     status,
     messages,
     interviewStats,
+    sessionId,
     startInterview,
     endInterview,
     resetInterview,

@@ -11,6 +11,9 @@ importers:
       '@deepgram/sdk':
         specifier: 4.11.2
         version: 4.11.2
+      '@google/generative-ai':
+        specifier: ^0.24.1
+        version: 0.24.1
       dotenv:
         specifier: 16.3.1
         version: 16.3.1
@@ -29,6 +32,9 @@ importers:
       npm-run-all:
         specifier: 4.1.5
         version: 4.1.5
+      openai:
+        specifier: ^6.16.0
+        version: 6.16.0(ws@8.17.1)
       ws:
         specifier: 8.17.1
         version: 8.17.1
@@ -45,6 +51,10 @@ packages:
 
   '@deepgram/sdk@4.11.2':
     resolution: {integrity: sha512-lKGxuXxlSixC8bB0BnzmIpbVjUSgYtz17cqvrgv0ZjmazgUPkuUj9egQPj6k+fbPX8wRzWEqlhrL/DXlXqeDXA==}
+    engines: {node: '>=18.0.0'}
+
+  '@google/generative-ai@0.24.1':
+    resolution: {integrity: sha512-MqO+MLfM6kjxcKoy0p1wRzG3b4ZZXtPI+z2IE26UogS2Cm/XHO+7gGRBh6gcJsOiIVoH93UwKvW4HdgiOZCy9Q==}
     engines: {node: '>=18.0.0'}
 
   '@mongodb-js/saslprep@1.4.4':
@@ -686,6 +696,18 @@ packages:
   once@1.4.0:
     resolution: {integrity: sha512-lNaJgI+2Q5URQBkccEKHTQOPaXdUxnZZElQTZY0MFUAuaEqe1E+Nyvgdz/aIyNi6Z9MzO5dv1H8n58/GELp3+w==}
 
+  openai@6.16.0:
+    resolution: {integrity: sha512-fZ1uBqjFUjXzbGc35fFtYKEOxd20kd9fDpFeqWtsOZWiubY8CZ1NAlXHW3iathaFvqmNtCWMIsosCuyeI7Joxg==}
+    hasBin: true
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
+
   own-keys@1.0.1:
     resolution: {integrity: sha512-qFOyK5PjiWZd+QQIh+1jhdb9LpxTF0qs7Pm8o5QHYZ0M3vKqSqzsZaEB6oWlxZ+q2sJBMI/Ktgd2N5ZwQoRHfg==}
     engines: {node: '>= 0.4'}
@@ -1043,6 +1065,8 @@ snapshots:
       - bufferutil
       - encoding
       - utf-8-validate
+
+  '@google/generative-ai@0.24.1': {}
 
   '@mongodb-js/saslprep@1.4.4':
     dependencies:
@@ -1799,6 +1823,10 @@ snapshots:
   once@1.4.0:
     dependencies:
       wrappy: 1.0.2
+
+  openai@6.16.0(ws@8.17.1):
+    optionalDependencies:
+      ws: 8.17.1
 
   own-keys@1.0.1:
     dependencies:

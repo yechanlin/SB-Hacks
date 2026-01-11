@@ -1,7 +1,11 @@
 import express from 'express';
+import OpenAI from 'openai';
+import dotenv from 'dotenv';
 import Session from '../models/Session.js';
 import Conversation from '../models/Conversation.js';
 import Report from '../models/Report.js';
+
+dotenv.config();
 
 const router = express.Router();
 
@@ -74,6 +78,46 @@ router.get('/:sessionId', async (req, res) => {
   }
 });
 
+// GET /api/sessions/:sessionId/conversations - Get all conversations for a session (debug endpoint)
+router.get('/:sessionId/conversations', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    const session = await Session.findOne({ sessionId });
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        error: 'Session not found'
+      });
+    }
+
+    const conversations = await Conversation.find({ sessionId: session._id })
+      .sort({ messageIndex: 1 });
+
+    console.log(`📊 Found ${conversations.length} conversations for session ${sessionId}`);
+
+    res.json({
+      success: true,
+      sessionId: session.sessionId,
+      sessionStatus: session.status,
+      count: conversations.length,
+      conversations: conversations.map(c => ({
+        role: c.role,
+        content: c.content.substring(0, 100) + (c.content.length > 100 ? '...' : ''),
+        timestamp: c.timestamp,
+        messageIndex: c.messageIndex,
+        metadata: c.metadata
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching conversations:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch conversations'
+    });
+  }
+});
+
 // POST /api/sessions/:sessionId/conversations - Add a conversation message
 router.post('/:sessionId/conversations', async (req, res) => {
   try {
@@ -108,6 +152,8 @@ router.post('/:sessionId/conversations', async (req, res) => {
     });
 
     await conversation.save();
+
+    console.log(`💾 Saved conversation to DB: ${role} - ${content.substring(0, 50)}... (sessionId: ${sessionId}, messageIndex: ${messageCount})`);
 
     // Update session statistics
     session.statistics.totalMessages += 1;
@@ -256,6 +302,186 @@ router.get('/:sessionId/report', async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to fetch report'
+    });
+  }
+});
+
+// POST /api/sessions/:sessionId/feedback/generate - Generate feedback using OpenAI API
+router.post('/:sessionId/feedback/generate', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    const session = await Session.findOne({ sessionId });
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        error: 'Session not found'
+      });
+    }
+
+    // Check if session is completed
+    if (session.status !== 'completed') {
+      return res.status(400).json({
+        success: false,
+        error: 'Session must be completed before generating feedback'
+      });
+    }
+
+    // Fetch all conversations for this session
+    const conversations = await Conversation.find({ sessionId: session._id })
+      .sort({ messageIndex: 1 });
+
+    if (conversations.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No conversations found for this session'
+      });
+    }
+
+    // Check for OpenAI API key
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    if (!openaiApiKey) {
+      return res.status(500).json({
+        success: false,
+        error: 'OPENAI_API_KEY not configured'
+      });
+    }
+
+    // Format conversations for the prompt
+    const conversationText = conversations.map((conv) => {
+      const role = conv.role === 'user' ? 'Candidate' : 'Interviewer';
+      return `${role}: ${conv.content}`;
+    }).join('\n\n');
+
+    // Calculate statistics
+    const userMessages = conversations.filter(c => c.role === 'user').length;
+    const assistantMessages = conversations.filter(c => c.role === 'assistant').length;
+    const questions = conversations.filter(c => c.metadata?.isQuestion).length;
+    const durationMinutes = session.duration ? Math.round(session.duration / 60000) : 0;
+
+    // Create prompt for OpenAI
+    const prompt = `You are an expert interview coach analyzing a mock interview session. Provide detailed, constructive feedback.
+
+Interview Context:
+- Role: ${session.config.role || 'Software Engineer'}
+- Interview Type: ${session.config.interviewType || 'Behavioral'}
+- Difficulty: ${session.config.difficulty || 'Mid'}
+- Duration: ${durationMinutes} minutes
+- Questions Asked: ${questions}
+- Total Messages: ${conversations.length}
+
+Interview Transcript:
+${conversationText}
+
+Please provide comprehensive feedback in the following JSON format:
+{
+  "summary": "A brief 2-3 sentence summary of the overall interview performance",
+  "strengths": ["List 3-5 specific strengths observed", "Be specific and reference examples from the conversation"],
+  "weaknesses": ["List 3-5 areas for improvement", "Be constructive and specific"],
+  "recommendations": ["List 3-5 actionable recommendations", "Be specific about how to improve"],
+  "scores": {
+    "overall": <number 0-100>,
+    "communication": <number 0-100>,
+    "technical": <number 0-100>,
+    "behavior": <number 0-100>
+  }
+}
+
+Important: Return ONLY valid JSON, no additional text before or after. The JSON should be parseable.`;
+
+    // Initialize OpenAI
+    const openai = new OpenAI({
+      apiKey: openaiApiKey
+    });
+
+    console.log(`Generating feedback for session ${sessionId} using OpenAI...`);
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini', // Using GPT-4o-mini for cost-effectiveness
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert interview coach. Analyze interview sessions and provide constructive feedback. Always return valid JSON only, no additional text.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      temperature: 0.7,
+      response_format: { type: 'json_object' }
+    });
+
+    const text = completion.choices[0].message.content;
+
+    // Parse JSON from response (OpenAI with response_format: json_object returns pure JSON)
+    let feedbackData;
+    try {
+      // OpenAI with response_format: { type: 'json_object' } returns pure JSON
+      feedbackData = JSON.parse(text);
+    } catch (parseError) {
+      console.error('Error parsing OpenAI response:', parseError);
+      console.error('Raw response:', text);
+      // Try to extract JSON if it's wrapped in markdown code blocks (fallback)
+      try {
+        const jsonMatch = text.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/) || text.match(/(\{[\s\S]*\})/);
+        const jsonText = jsonMatch ? jsonMatch[1] : text;
+        feedbackData = JSON.parse(jsonText);
+      } catch (fallbackError) {
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to parse feedback from AI. Please try again.'
+        });
+      }
+    }
+
+    // Validate feedback structure
+    if (!feedbackData.summary || !feedbackData.strengths || !feedbackData.weaknesses || !feedbackData.recommendations || !feedbackData.scores) {
+      return res.status(500).json({
+        success: false,
+        error: 'Invalid feedback format from AI'
+      });
+    }
+
+    // Create report content
+    const reportContent = {
+      summary: feedbackData.summary,
+      strengths: Array.isArray(feedbackData.strengths) ? feedbackData.strengths : [],
+      weaknesses: Array.isArray(feedbackData.weaknesses) ? feedbackData.weaknesses : [],
+      recommendations: Array.isArray(feedbackData.recommendations) ? feedbackData.recommendations : [],
+      scores: {
+        overall: feedbackData.scores?.overall || 0,
+        communication: feedbackData.scores?.communication || 0,
+        technical: feedbackData.scores?.technical || 0,
+        behavior: feedbackData.scores?.behavior || 0
+      },
+      statistics: {
+        totalDuration: session.duration || 0,
+        questionCount: session.statistics?.questionCount || questions,
+        averageResponseTime: userMessages > 0 ? Math.round((session.duration || 0) / userMessages) : 0
+      }
+    };
+
+    // Save report
+    const report = new Report({
+      sessionId: session._id,
+      reportType: 'feedback',
+      content: reportContent,
+      generatedAt: new Date()
+    });
+
+    await report.save();
+
+    console.log(`Feedback generated successfully for session ${sessionId}`);
+
+    res.status(201).json({
+      success: true,
+      report
+    });
+  } catch (error) {
+    console.error('Error generating feedback:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate feedback'
     });
   }
 });

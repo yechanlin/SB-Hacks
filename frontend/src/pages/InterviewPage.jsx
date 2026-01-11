@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import InterviewConfig from '../components/InterviewConfig';
 import ConversationHistory from '../components/ConversationHistory';
 import InterviewControls from '../components/InterviewControls';
@@ -16,9 +16,16 @@ export default function InterviewPage({
   endInterview,
   resetInterview,
   sendTextResponse,
-  onBack
+  onBack,
+  sessionId
 }) {
   const isTechnical = config.interviewType === 'technical' || config.interviewType === 'mixed';
+  const [interviewEnded, setInterviewEnded] = useState(false);
+
+  const handleEndInterview = () => {
+    endInterview();
+    setInterviewEnded(true);
+  };
   return (
     <div className="w-full h-screen bg-gradient-to-br from-slate-100 via-gray-200 to-slate-200 font-jura relative">
       {/* Back to Setup Button - Top Right */}
@@ -71,9 +78,17 @@ export default function InterviewPage({
           <InterviewControls
             isConnected={isConnected}
             status={status}
-            onStart={startInterview}
-            onEnd={endInterview}
-            onReset={resetInterview}
+            onStart={() => {
+              startInterview();
+              setInterviewEnded(false);
+            }}
+            onEnd={handleEndInterview}
+            onReset={() => {
+              resetInterview();
+              setInterviewEnded(false);
+            }}
+            sessionId={sessionId}
+            interviewEnded={interviewEnded}
           />
         </div>
 
