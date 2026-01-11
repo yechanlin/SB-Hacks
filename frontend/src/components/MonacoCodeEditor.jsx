@@ -47,7 +47,7 @@ export default function MonacoCodeEditor({ code, setCode, language }) {
   }, [code]);
 
   return (
-    <div ref={editorRef} style={{ height: 400, width: '100%', borderRadius: '0.5rem', overflow: 'hidden', border: '2px solid #334155' }} />
+    <div ref={editorRef} style={{ height: '100%', width: '100%', borderRadius: '0.5rem', overflow: 'hidden', border: '2px solid #334155' }} />
   );
 }
 

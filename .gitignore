@@ -30,3 +30,6 @@ config.json
 
 # MongoDB local data
 /data
+
+# pnpm store
+.pnpm-store

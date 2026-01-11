@@ -296,9 +296,26 @@ wss.on('connection', async (clientWs) => {
           } else if (message.type === 'InjectUserMessage') {
             // Use SDK method for injecting user messages
             deepgramAgent.injectUserMessage(message.content);
+          } else if (message.type === 'InjectAgentContext') {
+            // Handle agent context injection - send as raw message
+            // Wrap in try-catch to prevent disconnection on errors
+            try {
+              // Send as JSON string - this should work based on other usage in the codebase
+              deepgramAgent.send(JSON.stringify(message));
+              console.log('Agent context injected successfully');
+            } catch (contextError) {
+              console.error('Error injecting agent context (non-fatal):', contextError);
+              // Don't disconnect - just log the error and continue
+              // The connection should remain open even if context injection fails
+            }
           } else {
             // Forward other JSON messages as-is (send as string, not buffer)
-            deepgramAgent.send(JSON.stringify(message));
+            try {
+              deepgramAgent.send(JSON.stringify(message));
+            } catch (sendError) {
+              console.error('Error sending message to agent:', sendError);
+              // Don't disconnect - just log the error
+            }
           }
         }
       } catch (error) {

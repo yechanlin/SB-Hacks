@@ -1,21 +1,13 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { generateFeedback, getConversations } from '../utils/api';
 
 export default function InterviewControls({ isConnected, status, onStart, onEnd, onReset, sessionId, interviewEnded }) {
-  const [injectMessage, setInjectMessage] = useState('');
   const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [feedbackError, setFeedbackError] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [conversationCount, setConversationCount] = useState(null);
-
-  const handleSendInject = () => {
-    if (injectMessage.trim()) {
-      // This would need to be implemented in the voice agent hook
-      console.log('Inject message:', injectMessage);
-      setInjectMessage('');
-    }
-  };
 
   const handleCheckConversations = async () => {
     if (!sessionId) {
@@ -62,7 +54,11 @@ export default function InterviewControls({ isConnected, status, onStart, onEnd,
 
     try {
       const result = await generateFeedback(sessionId);
-      setFeedback(result.report);
+      console.log('📋 Feedback API response:', result);
+      // The backend returns report.content for the feedback data
+      const feedbackData = result.report?.content || result.report;
+      console.log('📊 Extracted feedback data:', feedbackData);
+      setFeedback(feedbackData);
       setShowFeedback(true);
     } catch (error) {
       console.error('Error generating feedback:', error);
@@ -109,169 +105,201 @@ export default function InterviewControls({ isConnected, status, onStart, onEnd,
         <i className="fa-solid fa-sliders"></i> Interview Controls
       </h2>
 
-      <div className="grid lg:grid-cols-[auto_1fr] gap-6 items-start">
-        {/* Left Side: Status & Buttons */}
-        <div className="flex flex-col gap-3">
-          {/* Status */}
-          <div className={`px-4 py-2 rounded-lg font-semibold text-sm text-center border-2 ${statusInfo.color} flex items-center justify-center gap-2`}>
-            <i className={`fa-solid ${statusInfo.icon} ${statusInfo.pulse ? 'fa-spin' : ''}`}></i>
-            <span>{status}</span>
-          </div>
-          
-          {/* Buttons */}
-          <div className="flex flex-col gap-2">
-            <div className="flex gap-2">
-              <button
-                onClick={onStart}
-                disabled={isConnected}
-                className="px-4 py-2 border-none rounded-lg font-jura text-sm font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all bg-gradient-to-br from-emerald-500 to-green-600 text-white hover:scale-105 hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
-              >
-                <i className="fa-solid fa-play"></i> Start
-              </button>
-              <button
-                onClick={onEnd}
-                disabled={!isConnected}
-                className="px-4 py-2 border-none rounded-lg font-jura text-sm font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all bg-gradient-to-br from-red-500 to-red-700 text-white hover:scale-105 hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
-              >
-                <i className="fa-solid fa-stop"></i> End
-              </button>
-              <button
-                onClick={onReset}
-                className="px-4 py-2 border-none rounded-lg font-jura text-sm font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all bg-gradient-to-br from-gray-500 to-gray-700 text-white hover:scale-105 hover:shadow-lg"
-              >
-                <i className="fa-solid fa-rotate-right"></i> Reset
-              </button>
-            </div>
-            {interviewEnded && (
-              <>
-                <button
-                  onClick={handleCheckConversations}
-                  className="px-4 py-2 border-none rounded-lg font-jura text-sm font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:scale-105 hover:shadow-lg w-full"
-                  title="Check how many conversations are saved in database"
-                >
-                  <i className="fa-solid fa-database"></i>
-                  Check Conversations {conversationCount !== null && `(${conversationCount})`}
-                </button>
-                <button
-                  onClick={handleGenerateFeedback}
-                  disabled={isGeneratingFeedback}
-                  className="px-4 py-2 border-none rounded-lg font-jura text-sm font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all bg-gradient-to-br from-interview-purple to-interview-dark-purple text-white hover:scale-105 hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none w-full"
-                >
-                  <i className={`fa-solid ${isGeneratingFeedback ? 'fa-spinner fa-spin' : 'fa-star'}`}></i>
-                  {isGeneratingFeedback ? 'Generating Feedback...' : 'Generate Feedback'}
-                </button>
-              </>
-            )}
-          </div>
+      <div className="flex flex-col gap-4">
+        {/* Status */}
+        <div className={`px-4 py-2 rounded-lg font-semibold text-sm text-center border-2 ${statusInfo.color} flex items-center justify-center gap-2`}>
+          <i className={`fa-solid ${statusInfo.icon} ${statusInfo.pulse ? 'fa-spin' : ''}`}></i>
+          <span>{status}</span>
+        </div>
+        
+        {/* Main Control Buttons */}
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            onClick={onStart}
+            disabled={isConnected}
+            className="px-4 py-2.5 border-none rounded-lg font-jura text-sm font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all bg-gradient-to-br from-emerald-500 to-green-600 text-white hover:scale-105 hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
+          >
+            <i className="fa-solid fa-play"></i> Start
+          </button>
+          <button
+            onClick={onEnd}
+            disabled={!isConnected}
+            className="px-4 py-2.5 border-none rounded-lg font-jura text-sm font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all bg-gradient-to-br from-red-500 to-red-700 text-white hover:scale-105 hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
+          >
+            <i className="fa-solid fa-stop"></i> End
+          </button>
+          <button
+            onClick={onReset}
+            className="px-4 py-2.5 border-none rounded-lg font-jura text-sm font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all bg-gradient-to-br from-gray-500 to-gray-700 text-white hover:scale-105 hover:shadow-lg"
+          >
+            <i className="fa-solid fa-rotate-right"></i> Reset
+          </button>
         </div>
 
-        {/* Right Side: Context Injection */}
-        <div className="flex flex-col gap-2">
-          <label className="text-xs font-semibold uppercase tracking-wider text-gray-600 flex items-center gap-2">
-            <i className="fa-solid fa-message-plus"></i> Inject Context (Optional)
-          </label>
-          <div className="flex gap-2 items-center">
-            <input
-              type="text"
-              value={injectMessage}
-              onChange={(e) => setInjectMessage(e.target.value)}
-              placeholder="Send additional context or instructions..."
-              disabled={!isConnected}
-              className="flex-1 p-2.5 border-2 border-interview-purple/20 rounded-lg font-jura text-sm font-medium focus:outline-none focus:border-interview-purple focus:ring-2 focus:ring-interview-purple/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-100"
-            />
+        {/* Additional Buttons - Only shown after interview ends */}
+        {interviewEnded && (
+          <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={handleSendInject}
-              disabled={!isConnected || !injectMessage.trim()}
-              className="px-4 py-2.5 border-none rounded-lg font-jura text-sm font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all bg-gradient-to-br from-interview-purple to-interview-dark-purple text-white hover:scale-105 hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none whitespace-nowrap"
+              onClick={handleCheckConversations}
+              className="px-4 py-2.5 border-none rounded-lg font-jura text-sm font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:scale-105 hover:shadow-lg"
+              title="Check how many conversations are saved in database"
             >
-              <i className="fa-solid fa-paper-plane"></i> Send
+              <i className="fa-solid fa-database"></i>
+              Check Conversations {conversationCount !== null && `(${conversationCount})`}
+            </button>
+            <button
+              onClick={handleGenerateFeedback}
+              disabled={isGeneratingFeedback}
+              className="px-4 py-2.5 border-none rounded-lg font-jura text-sm font-semibold cursor-pointer flex items-center justify-center gap-2 transition-all bg-gradient-to-br from-interview-purple to-interview-dark-purple text-white hover:scale-105 hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
+            >
+              <i className={`fa-solid ${isGeneratingFeedback ? 'fa-spinner fa-spin' : 'fa-star'}`}></i>
+              {isGeneratingFeedback ? 'Generating Feedback...' : 'Generate Feedback'}
             </button>
           </div>
-          <small className="text-gray-600 text-xs flex items-start gap-1">
-            <i className="fa-solid fa-circle-info mt-0.5"></i>
-            <span>Add clarifications during the interview</span>
-          </small>
-        </div>
+        )}
       </div>
 
-      {/* Feedback Section */}
-      {(feedbackError || feedback) && (
-        <div className="mt-4 p-4 bg-white/95 backdrop-blur-lg border-2 border-slate-300 rounded-2xl shadow-xl">
-          {feedbackError && (
-            <div className="text-red-600 text-sm font-semibold flex items-center gap-2">
-              <i className="fa-solid fa-circle-exclamation"></i>
-              <span>{feedbackError}</span>
-            </div>
-          )}
-          {feedback && showFeedback && (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold text-interview-purple">Interview Feedback</h3>
-                <button
-                  onClick={() => setShowFeedback(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <i className="fa-solid fa-times"></i>
-                </button>
+      {/* Feedback Error Display (inline) */}
+      {feedbackError && (
+        <div className="mt-4 p-4 bg-red-50 border-2 border-red-300 rounded-2xl shadow-lg">
+          <div className="text-red-600 text-sm font-semibold flex items-center gap-2">
+            <i className="fa-solid fa-circle-exclamation"></i>
+            <span>{feedbackError}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Feedback Modal Popup - Rendered via Portal */}
+      {feedback && showFeedback && createPortal(
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowFeedback(false)}
+          ></div>
+          
+          {/* Modal Content - Centered using transform */}
+          <div 
+            className="fixed z-[10000] bg-white rounded-2xl shadow-2xl w-[90vw] max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+            style={{
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)'
+            }}
+          >
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-interview-purple to-interview-dark-purple text-white px-6 py-4 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <i className="fa-solid fa-star text-2xl"></i>
+                <h2 className="text-2xl font-bold">Interview Feedback</h2>
               </div>
-              
+              <button
+                onClick={() => setShowFeedback(false)}
+                className="text-white/90 hover:text-white hover:bg-white/20 p-2 rounded-lg transition-all"
+                aria-label="Close feedback"
+              >
+                <i className="fa-solid fa-times text-xl"></i>
+              </button>
+            </div>
+
+            {/* Modal Body - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Summary */}
-              <div>
-                <h4 className="font-semibold text-gray-700 mb-2">Summary</h4>
-                <p className="text-sm text-gray-600">{feedback.content.summary}</p>
+              <div className="bg-gradient-to-br from-blue-50 to-white p-5 rounded-xl border-l-4 border-interview-purple">
+                <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                  <i className="fa-solid fa-file-lines text-interview-purple"></i>
+                  Summary
+                </h3>
+                <p className="text-gray-700 leading-relaxed">{feedback.summary}</p>
               </div>
 
               {/* Scores */}
-              {feedback.content.scores && (
+              {feedback.scores && (
                 <div>
-                  <h4 className="font-semibold text-gray-700 mb-2">Scores</h4>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>Overall: <span className="font-bold text-interview-purple">{feedback.content.scores.overall}/100</span></div>
-                    <div>Communication: <span className="font-bold text-blue-600">{feedback.content.scores.communication}/100</span></div>
-                    <div>Technical: <span className="font-bold text-green-600">{feedback.content.scores.technical}/100</span></div>
-                    <div>Behavior: <span className="font-bold text-orange-600">{feedback.content.scores.behavior}/100</span></div>
+                  <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <i className="fa-solid fa-chart-bar text-interview-purple"></i>
+                    Scores
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    {Object.entries(feedback.scores).map(([key, value]) => (
+                      <div key={key} className="bg-gradient-to-br from-gray-50 to-white p-4 rounded-xl border-2 border-gray-200 hover:border-interview-purple/50 transition-all shadow-sm">
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold text-gray-700 capitalize">{key}</span>
+                          <span className="font-bold text-2xl text-interview-purple">{value}/100</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
 
               {/* Strengths */}
-              {feedback.content.strengths && feedback.content.strengths.length > 0 && (
-                <div>
-                  <h4 className="font-semibold text-green-700 mb-2">Strengths</h4>
-                  <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-                    {feedback.content.strengths.map((strength, idx) => (
-                      <li key={idx}>{strength}</li>
+              {feedback.strengths && feedback.strengths.length > 0 && (
+                <div className="bg-gradient-to-br from-green-50 to-white p-5 rounded-xl border-l-4 border-green-500">
+                  <h3 className="text-lg font-bold text-green-800 mb-4 flex items-center gap-2">
+                    <i className="fa-solid fa-check-circle text-green-600"></i>
+                    Strengths
+                  </h3>
+                  <ul className="space-y-3">
+                    {feedback.strengths.map((strength, idx) => (
+                      <li key={idx} className="flex items-start gap-3 text-gray-700">
+                        <i className="fa-solid fa-chevron-right text-green-500 mt-1 text-sm"></i>
+                        <span className="flex-1">{strength}</span>
+                      </li>
                     ))}
                   </ul>
                 </div>
               )}
 
               {/* Weaknesses */}
-              {feedback.content.weaknesses && feedback.content.weaknesses.length > 0 && (
-                <div>
-                  <h4 className="font-semibold text-orange-700 mb-2">Areas for Improvement</h4>
-                  <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-                    {feedback.content.weaknesses.map((weakness, idx) => (
-                      <li key={idx}>{weakness}</li>
+              {feedback.weaknesses && feedback.weaknesses.length > 0 && (
+                <div className="bg-gradient-to-br from-orange-50 to-white p-5 rounded-xl border-l-4 border-orange-500">
+                  <h3 className="text-lg font-bold text-orange-800 mb-4 flex items-center gap-2">
+                    <i className="fa-solid fa-exclamation-triangle text-orange-600"></i>
+                    Areas for Improvement
+                  </h3>
+                  <ul className="space-y-3">
+                    {feedback.weaknesses.map((weakness, idx) => (
+                      <li key={idx} className="flex items-start gap-3 text-gray-700">
+                        <i className="fa-solid fa-chevron-right text-orange-500 mt-1 text-sm"></i>
+                        <span className="flex-1">{weakness}</span>
+                      </li>
                     ))}
                   </ul>
                 </div>
               )}
 
               {/* Recommendations */}
-              {feedback.content.recommendations && feedback.content.recommendations.length > 0 && (
-                <div>
-                  <h4 className="font-semibold text-blue-700 mb-2">Recommendations</h4>
-                  <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-                    {feedback.content.recommendations.map((rec, idx) => (
-                      <li key={idx}>{rec}</li>
+              {feedback.recommendations && feedback.recommendations.length > 0 && (
+                <div className="bg-gradient-to-br from-blue-50 to-white p-5 rounded-xl border-l-4 border-blue-500">
+                  <h3 className="text-lg font-bold text-blue-800 mb-4 flex items-center gap-2">
+                    <i className="fa-solid fa-lightbulb text-blue-600"></i>
+                    Recommendations
+                  </h3>
+                  <ul className="space-y-3">
+                    {feedback.recommendations.map((rec, idx) => (
+                      <li key={idx} className="flex items-start gap-3 text-gray-700">
+                        <i className="fa-solid fa-chevron-right text-blue-500 mt-1 text-sm"></i>
+                        <span className="flex-1">{rec}</span>
+                      </li>
                     ))}
                   </ul>
                 </div>
               )}
             </div>
-          )}
-        </div>
+
+            {/* Modal Footer */}
+            <div className="bg-gray-50 px-6 py-4 flex justify-end border-t border-gray-200">
+              <button
+                onClick={() => setShowFeedback(false)}
+                className="px-6 py-2.5 bg-gradient-to-br from-interview-purple to-interview-dark-purple text-white rounded-lg font-semibold hover:shadow-lg transition-all hover:scale-105"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </>,
+        document.body
       )}
     </div>
   );
