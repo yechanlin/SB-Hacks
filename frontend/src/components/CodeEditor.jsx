@@ -21,10 +21,7 @@ export default function CodeEditor({ interviewType, isConnected, sendTextRespons
         if (response.ok) {
           const problemData = await response.json();
           setProblem(problemData);
-          // Set initial code with function signature
-          if (problemData.functionSignature && problemData.functionSignature[language]) {
-            setCode(problemData.functionSignature[language]);
-          }
+          // Editor starts empty - no boilerplate code
         }
       } catch (error) {
         console.error('Error fetching problem:', error);
@@ -33,12 +30,7 @@ export default function CodeEditor({ interviewType, isConnected, sendTextRespons
     fetchProblem();
   }, []);
 
-  // Update code when language changes
-  useEffect(() => {
-    if (problem && problem.functionSignature && problem.functionSignature[language]) {
-      setCode(problem.functionSignature[language]);
-    }
-  }, [language, problem]);
+  // Language changes don't reset code - user keeps their work
 
   // Monitor interviewer messages for the special [SHOW_PROBLEM] marker
   useEffect(() => {
@@ -239,13 +231,7 @@ ${code.trim()}
         <div className="mt-4 flex gap-3 justify-between items-center">
           <div className="flex gap-2">
             <button
-              onClick={() => {
-                if (problem && problem.functionSignature && problem.functionSignature[language]) {
-                  setCode(problem.functionSignature[language]);
-                } else {
-                  setCode('');
-                }
-              }}
+              onClick={() => setCode('')}
               className="px-4 py-2 bg-red-500 text-white rounded-lg font-semibold hover:-translate-y-0.5 hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isSubmitting}
             >

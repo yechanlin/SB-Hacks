@@ -7,7 +7,11 @@ export default defineConfig({
   server: {
     port: 5173,
     open: false,
-    host: true
+    host: true,
+    fs: {
+      // Allow serving files from monaco-editor
+      allow: ['..']
+    }
   },
   preview: {
     port: 5173,
@@ -24,5 +28,8 @@ export default defineConfig({
         assetFileNames: 'assets/[name].[ext]'
       }
     }
+  },
+  optimizeDeps: {
+    include: ['monaco-editor']
   }
 });
