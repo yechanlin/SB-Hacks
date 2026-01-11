@@ -31,7 +31,7 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-gray-200 to-slate-200 bg-fixed font-jura">
       <header className="bg-gradient-to-r from-white to-gray-50 border-b-4 border-interview-purple shadow-lg shadow-slate-300/50 p-4 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
+        <div className="max-w-7xl mx-auto flex justify-center items-center">
           <div className="flex items-center gap-3">
             <i className="fa-solid fa-user-tie text-2xl text-interview-purple"></i>
             <h1 className="text-2xl font-semibold text-interview-purple m-0">AI Mock Interview Agent</h1>
