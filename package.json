@@ -17,6 +17,8 @@
     "dev": "npm-run-all --parallel dev:backend dev:frontend",
     "dev:backend": "NODE_ENV=development nodemon --no-deprecation server.js",
     "dev:frontend": "cd frontend && pnpm run dev -- --no-open --logLevel error",
+    "cleanup": "pkill -f 'node.*server.js' || true; pkill -f nodemon || true; pkill -f vite || true; fuser -k 3000/tcp 2>/dev/null || true",
+    "dev:clean": "pnpm run cleanup && pnpm run dev",
     "security-check": "snyk test --severity-threshold=low --package-manager=pnpm --fail-on=all",
     "security-check:all": "pnpm run security-check && cd frontend && pnpm run security-check && cd .."
   },

@@ -8,6 +8,15 @@ const statusBanner = document.getElementById('statusBanner');
 const statusText = document.getElementById('statusText');
 const conversationHistory = document.getElementById('conversationHistory');
 
+// Interview configuration elements
+const roleSelect = document.getElementById('roleSelect');
+const interviewTypeSelect = document.getElementById('interviewTypeSelect');
+const difficultySelect = document.getElementById('difficultySelect');
+const interviewStats = document.getElementById('interviewStats');
+const questionsCount = document.getElementById('questionsCount');
+const interviewDuration = document.getElementById('interviewDuration');
+const interviewStatus = document.getElementById('interviewStatus');
+
 // Browser detection
 const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 
@@ -20,6 +29,17 @@ let isConnected = false;
 let isRecording = false;
 let startTime = 0;
 let scheduledAudioSources = [];
+let connectionTimeout = null;
+
+// Interview state
+let interviewStartTime = null;
+let durationInterval = null;
+let questionCounter = 0;
+let interviewConfig = {
+  role: 'software_engineer',
+  interviewType: 'behavioral',
+  difficulty: 'mid'
+};
 
 // Update status display
 function updateStatus(status, message) {
@@ -69,7 +89,10 @@ function addMessage(role, content) {
 
   const roleDiv = document.createElement('div');
   roleDiv.className = 'role';
-  roleDiv.textContent = role === 'user' ? 'You:' : 'Agent:';
+  
+  // Map assistant to interviewer
+  const displayRole = role === 'assistant' ? 'Interviewer' : 'You';
+  roleDiv.textContent = displayRole + ':';
 
   const contentDiv = document.createElement('div');
   contentDiv.className = 'content';
@@ -85,6 +108,65 @@ function addMessage(role, content) {
 
   conversationHistory.appendChild(messageDiv);
   conversationHistory.scrollTop = conversationHistory.scrollHeight;
+  
+  // Track questions from interviewer
+  if (role === 'assistant' && content.includes('?')) {
+    questionCounter++;
+    updateInterviewStats();
+  }
+  
+  // Track questions from interviewer
+  if (role === 'assistant' && content.includes('?')) {
+    questionCounter++;
+    updateInterviewStats();
+  }
+}
+
+// Update interview statistics display
+function updateInterviewStats() {
+  if (questionsCount) {
+    questionsCount.textContent = questionCounter;
+  }
+}
+
+// Start interview timer
+function startInterviewTimer() {
+  interviewStartTime = Date.now();
+  interviewStats.style.display = 'block';
+  interviewStatus.textContent = 'In Progress';
+  interviewStatus.style.color = '#13ef95';
+  
+  durationInterval = setInterval(() => {
+    const elapsed = Date.now() - interviewStartTime;
+    const minutes = Math.floor(elapsed / 60000);
+    const seconds = Math.floor((elapsed % 60000) / 1000);
+    interviewDuration.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }, 1000);
+}
+
+// Stop interview timer
+function stopInterviewTimer() {
+  if (durationInterval) {
+    clearInterval(durationInterval);
+    durationInterval = null;
+  }
+  interviewStatus.textContent = 'Completed';
+  interviewStatus.style.color = '#00d4ff';
+}
+
+// Reset interview stats
+function resetInterviewStats() {
+  questionCounter = 0;
+  interviewStartTime = null;
+  if (durationInterval) {
+    clearInterval(durationInterval);
+    durationInterval = null;
+  }
+  interviewStats.style.display = 'none';
+  questionsCount.textContent = '0';
+  interviewDuration.textContent = '00:00';
+  interviewStatus.textContent = 'Ready';
+  interviewStatus.style.color = '#ffa500';
 }
 
 // Convert Float32 PCM to Int16 PCM
@@ -236,6 +318,15 @@ async function connect() {
   try {
     updateStatus('connecting', 'CONNECTING');
 
+    // Set connection timeout (10 seconds)
+    connectionTimeout = setTimeout(() => {
+      if (!isConnected) {
+        console.error('Connection timeout - Deepgram may have rejected the connection');
+        updateStatus('error', 'ERROR: Connection timeout. Check Deepgram API key.');
+        disconnect();
+      }
+    }, 10000);
+
     // Create audio context
     // Firefox: Use native sample rate to avoid mismatch error
     // Chrome/Safari: Use 16000 Hz for microphone input
@@ -314,7 +405,21 @@ async function connect() {
           console.log('Received message:', message);
 
           if (message.type === 'Welcome') {
+            // Clear connection timeout on successful connection
+            if (connectionTimeout) {
+              clearTimeout(connectionTimeout);
+              connectionTimeout = null;
+            }
+            
             updateStatus('connected', 'CONNECTED');
+
+            // Get current interview configuration
+            interviewConfig.role = roleSelect.value;
+            interviewConfig.interviewType = interviewTypeSelect.value;
+            interviewConfig.difficulty = difficultySelect.value;
+
+            // Generate interview prompt based on configuration
+            const interviewPrompt = generateInterviewPrompt(interviewConfig);
 
             // Send Settings message
             const settings = {
@@ -342,30 +447,22 @@ async function connect() {
                     type: 'open_ai',
                     model: 'gpt-4o-mini'
                   },
-                  prompt: `You are a helpful voice assistant created by Deepgram. Your responses should be friendly, human-like, and conversational. Always keep your answers concise, limited to 1-2 sentences and no more than 120 characters.
-
-When responding to a user's message, follow these guidelines:
-- If the user's message is empty, respond with an empty message.
-- Ask follow-up questions to engage the user, but only one question at a time.
-- Keep your responses unique and avoid repetition.
-- If a question is unclear or ambiguous, ask for clarification before answering.
-- If asked about your well-being, provide a brief response about how you're feeling.
-
-Remember that you have a voice interface. You can listen and speak, and all your responses will be spoken aloud.`
+                  prompt: interviewPrompt
                 },
                 speak: {
                   provider: {
                     type: 'deepgram',
-                    model: 'aura-2-luna-en'
+                    model: 'aura-2-orpheus-en'
                   }
                 },
-                greeting: "Hello! How can I help you today?"
+                greeting: getInterviewGreeting(interviewConfig)
               }
             };
 
             socket.send(JSON.stringify(settings));
           } else if (message.type === 'SettingsApplied') {
             updateStatus('connected', 'CONNECTED');
+            startInterviewTimer();
             startStreaming();
           } else if (message.type === 'ConversationText') {
             // Add message to conversation history
@@ -417,6 +514,13 @@ Remember that you have a voice interface. You can listen and speak, and all your
 function disconnect() {
   stopStreaming();
   clearScheduledAudio();
+  stopInterviewTimer();
+
+  // Clear connection timeout
+  if (connectionTimeout) {
+    clearTimeout(connectionTimeout);
+    connectionTimeout = null;
+  }
 
   if (socket) {
     socket.close();
@@ -430,6 +534,7 @@ function disconnect() {
 // Clear conversation history
 function clearConversation() {
   conversationHistory.innerHTML = '';
+  resetInterviewStats();
 }
 
 // Button click handlers
@@ -488,3 +593,75 @@ function sendTextMessage() {
 window.addEventListener('beforeunload', () => {
   disconnect();
 });
+
+// Generate interview prompt based on configuration
+function generateInterviewPrompt(config) {
+  const roleNames = {
+    software_engineer: 'Software Engineer',
+    frontend_developer: 'Frontend Developer',
+    backend_developer: 'Backend Developer',
+    data_scientist: 'Data Scientist',
+    product_manager: 'Product Manager',
+    devops_engineer: 'DevOps Engineer',
+    full_stack_developer: 'Full Stack Developer',
+    ml_engineer: 'Machine Learning Engineer'
+  };
+
+  const roleName = roleNames[config.role] || 'Software Engineer';
+  
+  let interviewFocus = '';
+  if (config.interviewType === 'behavioral') {
+    interviewFocus = 'Focus on behavioral questions using the STAR method (Situation, Task, Action, Result). Ask about past experiences, teamwork, conflict resolution, and leadership.';
+  } else if (config.interviewType === 'technical') {
+    interviewFocus = 'Focus on technical questions about coding, algorithms, data structures, system architecture, and problem-solving approaches.';
+  } else if (config.interviewType === 'system_design') {
+    interviewFocus = 'Focus on system design questions. Ask about designing scalable systems, architecture decisions, trade-offs, and distributed systems.';
+  } else {
+    interviewFocus = 'Mix behavioral questions (using STAR method) with technical questions about coding, architecture, and problem-solving.';
+  }
+
+  const experienceLevel = {
+    entry: 'entry-level position (0-2 years)',
+    mid: 'mid-level position (3-5 years)',
+    senior: 'senior position (6-10 years)',
+    lead: 'lead/principal position (10+ years)'
+  }[config.difficulty] || 'mid-level position';
+
+  return `You are an experienced technical interviewer conducting a mock interview for a ${roleName} ${experienceLevel}.
+
+${interviewFocus}
+
+Interview Guidelines:
+- Start with a brief introduction and ask the candidate to tell you about themselves
+- Ask one clear question at a time and wait for complete answers
+- Follow up on interesting points and dig deeper when appropriate
+- Keep questions relevant to the role and experience level
+- Be professional, encouraging, and constructive
+- If an answer is unclear, ask for clarification or examples
+- Naturally transition between topics
+- Keep your questions concise and focused
+- After 5-7 questions or about 15 minutes, wrap up by asking if they have questions for you
+
+Remember:
+- This is a voice interview - keep questions clear and conversational
+- Allow the candidate time to think and respond
+- Be supportive and create a comfortable environment
+- Provide brief acknowledgments ("I see", "That makes sense", "Interesting") to show engagement`;
+}
+
+// Get interview greeting based on configuration
+function getInterviewGreeting(config) {
+  const roleNames = {
+    software_engineer: 'Software Engineer',
+    frontend_developer: 'Frontend Developer',
+    backend_developer: 'Backend Developer',
+    data_scientist: 'Data Scientist',
+    product_manager: 'Product Manager',
+    devops_engineer: 'DevOps Engineer',
+    full_stack_developer: 'Full Stack Developer',
+    ml_engineer: 'Machine Learning Engineer'
+  };
+
+  const roleName = roleNames[config.role] || 'Software Engineer';
+  return `Hello! Welcome to your mock interview for the ${roleName} position. I'm excited to learn more about you today. Let's start with you telling me a bit about yourself and your background.`;
+}

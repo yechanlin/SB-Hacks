@@ -66,6 +66,16 @@ if (CONFIG.isDevelopment) {
 // Create HTTP server
 const server = createServer(app);
 
+// Enable proper port cleanup on Linux
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\nError: Port ${CONFIG.port} is already in use.`);
+    console.error('Run "pnpm run cleanup" to kill orphaned processes.\n');
+    process.exit(1);
+  }
+  throw err;
+});
+
 // Create WebSocket server with path filtering
 const wss = new WebSocketServer({
   server,
@@ -348,14 +358,18 @@ function shutdown() {
     process.exit(0);
   });
 
-  // Force exit after 5 seconds
+  // Force exit after 2 seconds (reduced for faster cleanup)
   setTimeout(() => {
     console.error('Force closing');
-    process.exit(1);
-  }, 5000);
+    process.exit(0); // Exit cleanly
+  }, 2000);
 }
 
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+  shutdown();
+});
 
 export default server;
