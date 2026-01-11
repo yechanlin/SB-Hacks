@@ -1,5 +1,5 @@
 {
-  "name": "@deepgram/node-voice-agent",
+  "name": "sb-hacks-interview-agent",
   "version": "1.0.0",
   "description": "A Node.js starter application for Deepgram's Voice Agent API",
   "type": "module",
@@ -24,7 +24,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepgram-starters/node-voice-agent.git"
+    "url": "git+https://github.com/yechanlin/SB-Hacks.git"
   },
   "keywords": [
     "voice-agent",

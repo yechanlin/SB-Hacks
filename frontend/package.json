@@ -1,5 +1,5 @@
 {
-  "name": "@deepgram/node-voice-agent-frontend",
+  "name": "sb-hacks-interview-agent-frontend",
   "version": "1.0.0",
   "description": "Frontend for Deepgram Voice Agent",
   "main": "index.html",
@@ -20,7 +20,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/deepgram-starters/node-voice-agent.git",
+    "url": "https://github.com/yechanlin/SB-Hacks.git",
     "directory": "frontend"
   },
   "engines": {

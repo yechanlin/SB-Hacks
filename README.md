@@ -62,7 +62,7 @@ pnpm start
 
 ## Getting Help
 
-- [Open an issue in this repository](https://github.com/deepgram-starters/node-voice-agent/issues/new)
+- [Open an issue in this repository](https://github.com/yechanlin/SB-Hacks/issues/new)
 - [Join the Deepgram Github Discussions Community](https://github.com/orgs/deepgram/discussions)
 - [Join the Deepgram Discord Community](https://discord.gg/xWRaCDBtW4)
 
