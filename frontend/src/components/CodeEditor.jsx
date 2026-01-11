@@ -223,7 +223,7 @@ ${code.trim()}
         </div>
 
         {/* Monaco Code Editor */}
-        <div className="relative flex-1 min-h-0">
+        <div className="relative flex-1 min-h-[300px]">
           <MonacoCodeEditor
             code={code}
             setCode={setCode}
