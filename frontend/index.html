@@ -14,6 +14,15 @@
       referrerpolicy="no-referrer"
     />
 
+    <!-- PDF.js for resume parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+      // Set PDF.js worker
+      if (typeof pdfjsLib !== 'undefined') {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+    </script>
+
     <!-- Deepgram Design System Styles -->
     <link
       rel="stylesheet"
@@ -265,7 +274,7 @@
               AI Mock Interview Agent
             </h1>
           </div>
-          <div>
+          <!-- <div>
             <a
               href="https://developers.deepgram.com/docs/voice-agent"
               target="_blank"
@@ -274,7 +283,7 @@
             >
               <i class="fa-solid fa-book"></i> Docs
             </a>
-          </div>
+          </div> -->
         </div>
       </div>
     </header>
@@ -294,7 +303,16 @@
             <option value="devops_engineer">DevOps Engineer</option>
             <option value="full_stack_developer">Full Stack Developer</option>
             <option value="ml_engineer">Machine Learning Engineer</option>
+            <option value="custom">Custom Role...</option>
           </select>
+        </div>
+        <div class="dg-form-field" style="margin-bottom: 1rem; display: none;" id="customRoleInputContainer">
+          <label class="dg-form-label">Custom Role Name</label>
+          <input type="text" id="customRoleInput" class="dg-input" placeholder="e.g., QA Engineer, Security Analyst..." />
+        </div>
+        <div class="dg-form-field" style="margin-bottom: 1rem;">
+          <label class="dg-form-label">Company Name (Optional)</label>
+          <input type="text" id="companyNameInput" class="dg-input" placeholder="e.g., TechCorp, Acme Inc..." />
         </div>
         <div class="dg-form-field" style="margin-bottom: 1rem;">
           <label class="dg-form-label">Interview Type</label>
@@ -313,6 +331,20 @@
             <option value="senior">Senior Level</option>
             <option value="lead">Lead/Principal</option>
           </select>
+        </div>
+        <div class="dg-form-field" style="margin-bottom: 1rem;">
+          <label class="dg-form-label">Upload Resume (Optional - PDF or TXT)</label>
+          <input type="file" id="resumeUpload" accept=".pdf,.txt" class="dg-input" style="padding: 0.5rem;" />
+          <small id="resumeFileName" style="display: block; margin-top: 0.5rem; color: #636e72; font-style: italic;">No file selected</small>
+          <small style="display: block; margin-top: 0.25rem; color: #636e72;">Upload your resume to get personalized questions based on your experience</small>
+        </div>
+        <div class="dg-form-field" style="margin-bottom: 1rem;">
+          <label class="dg-form-label">Interaction Mode</label>
+          <select id="interactionModeSelect" class="dg-input">
+            <option value="speech">🎤 Voice (Speak your answers)</option>
+            <option value="text">⌨️ Text (Type your answers)</option>
+          </select>
+          <small style="display: block; margin-top: 0.5rem; color: #636e72;">Choose how you want to respond during the interview</small>
         </div>
         <div id="interviewStats" style="display: none; margin-top: 1.5rem; padding: 1rem; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 12px; border: 2px solid rgba(102, 126, 234, 0.3); box-shadow: 0 4px 20px rgba(102, 126, 234, 0.15);">
           <div style="display: flex; justify-content: space-around; text-align: center;">
@@ -335,6 +367,32 @@
       <div class="card">
         <h2 class="card-title"><i class="fa-solid fa-comments"></i> Interview Conversation</h2>
         <div id="conversationHistory" class="conversation-history"></div>
+        
+        <!-- Text Response Input (shown only in text mode) -->
+        <div id="textResponseContainer" style="display: none; margin-top: 1rem; padding: 1rem; background: rgba(102, 126, 234, 0.05); border-radius: 12px; border: 2px solid rgba(102, 126, 234, 0.3);">
+          <label class="dg-form-label" style="margin-bottom: 0.5rem; display: block; font-weight: 600;">
+            <i class="fa-solid fa-keyboard"></i> Your Response:
+          </label>
+          <div style="display: flex; gap: 0.75rem; align-items: flex-end;">
+            <textarea
+              id="textResponseInput"
+              class="dg-input"
+              placeholder="Type your answer here and press Enter or click Send..."
+              rows="3"
+              style="flex: 1; resize: vertical; font-family: inherit;"
+            ></textarea>
+            <button
+              id="sendResponseButton"
+              class="dg-btn dg-btn--primary"
+              style="align-self: flex-end;"
+            >
+              <i class="fa-solid fa-paper-plane"></i> Send
+            </button>
+          </div>
+          <small style="display: block; margin-top: 0.5rem; color: #636e72;">
+            💡 Tip: Press Enter to send, Shift+Enter for new line
+          </small>
+        </div>
       </div>
       <!-- Controls Card -->
       <div class="card">
@@ -372,13 +430,13 @@
             <!-- Right Side: Text Input -->
             <main class="dg-column dg-column--main">
               <div class="dg-form-field" style="margin-top: 1rem">
-                <label class="dg-form-label">Inject User Message</label>
+                <label class="dg-form-label">Inject Additional Context (Optional)</label>
                 <div style="display: flex; gap: 0.5rem; align-items: center">
                   <input
                     type="text"
                     id="injectUserMessageInput"
                     class="dg-input"
-                    placeholder="Enter text to send to the agent"
+                    placeholder="Send additional context or instructions to the agent"
                     style="flex: 1"
                   />
                   <button
@@ -389,6 +447,7 @@
                     <i class="fa-solid fa-paper-plane"></i> Send
                   </button>
                 </div>
+                <small style="display: block; margin-top: 0.5rem; color: #636e72;">Use this to inject context or clarifications during the interview</small>
               </div>
             </main>
           </div>
