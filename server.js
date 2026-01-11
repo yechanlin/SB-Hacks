@@ -32,7 +32,7 @@ const CONFIG = {
   deepgramApiKey: process.env.DEEPGRAM_API_KEY,
   port: process.env.PORT || 3000,
   host: process.env.HOST || '0.0.0.0',
-  vitePort: process.env.VITE_PORT || 5173,
+  vitePort: process.env.VITE_PORT,
   isDevelopment: process.env.NODE_ENV === 'development',
 };
 
