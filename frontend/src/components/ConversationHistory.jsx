@@ -54,8 +54,8 @@ export default function ConversationHistory({ messages, interactionMode, isConne
             key={index} 
             className={`mb-4 flex flex-col max-w-[70%] clear-both ${
               msg.role === 'user' 
-                ? 'items-start float-left' 
-                : 'items-end float-right ml-auto'
+                ? 'items-end float-right ml-auto' 
+                : 'items-start float-left'
             }`}
           >
             <div className={`text-sm font-bold mb-2 capitalize ${
@@ -65,8 +65,8 @@ export default function ConversationHistory({ messages, interactionMode, isConne
             </div>
             <div className={`text-base leading-relaxed text-gray-800 p-3 px-4 rounded-xl break-words border ${
               msg.role === 'user'
-                ? 'bg-gradient-to-br from-blue-100 to-slate-200 text-gray-800 border-slate-300/50 rounded-bl shadow-md shadow-slate-300/30 before:content-[">_"] before:text-black/20 before:mr-1'
-                : 'bg-gradient-to-br from-slate-100 to-gray-100 text-gray-800 border-slate-300/50 rounded-br shadow-md shadow-slate-300/30 before:content-[">_"] before:text-black/20 before:mr-1'
+                ? 'bg-gradient-to-br from-blue-100 to-slate-200 text-gray-800 border-slate-300/50 rounded-br shadow-md shadow-slate-300/30 before:content-[">_"] before:text-black/20 before:mr-1'
+                : 'bg-gradient-to-br from-slate-100 to-gray-100 text-gray-800 border-slate-300/50 rounded-bl shadow-md shadow-slate-300/30 before:content-[">_"] before:text-black/20 before:mr-1'
             }`}>
               {msg.content}
             </div>
