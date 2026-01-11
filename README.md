@@ -128,3 +128,7 @@ For security policy and procedures, see our [Security Policy](./SECURITY.md).
 ## License
 
 MIT - See [LICENSE](./LICENSE)
+
+# Acknowledgement
+
+We set this project up based on the [template](https://github.com/deepgram-starters/node-voice-agent) developed by [John Vajda](https://github.com/jpvajda) and  [Naomi Carrigan](https://github.com/naomi-lgbt)
