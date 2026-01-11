@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 export default function ConversationHistory({ messages, interactionMode, isConnected, onSendTextResponse }) {
   const historyRef = useRef(null);
   const [textInput, setTextInput] = useState('');
+  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
     if (historyRef.current) {
@@ -25,14 +26,23 @@ export default function ConversationHistory({ messages, interactionMode, isConne
   };
 
   return (
-    <div className="bg-white/95 backdrop-blur-lg border-2 border-interview-purple/30 rounded-2xl p-6 mb-6 shadow-xl shadow-interview-purple/15">
-      <h2 className="text-2xl mb-8 text-center text-interview-purple uppercase tracking-widest font-bold">
-        <i className="fa-solid fa-comments"></i> Interview Conversation
-      </h2>
+    <div className="bg-white/95 backdrop-blur-lg border-2 border-slate-300 rounded-2xl p-6 mb-6 shadow-xl shadow-slate-300/50">
+      <div className="flex justify-between items-center mb-8">
+        <h2 className="text-2xl text-center text-interview-purple uppercase tracking-widest font-bold flex-1">
+          <i className="fa-solid fa-comments"></i> Interview Conversation
+        </h2>
+        <button
+          onClick={() => setIsVisible(!isVisible)}
+          className="px-4 py-2 bg-gradient-to-br from-interview-purple to-interview-dark-purple text-white rounded-lg font-semibold hover:-translate-y-0.5 hover:shadow-lg transition-all"
+          title={isVisible ? 'Hide conversation' : 'Show conversation'}
+        >
+          <i className={`fa-solid ${isVisible ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+        </button>
+      </div>
       
-      <div 
+      {isVisible && <div 
         ref={historyRef} 
-        className="min-h-[400px] max-h-[480px] overflow-y-auto p-4 bg-gray-50/90 rounded-xl border-2 border-interview-purple/20 shadow-inner scroll-smooth [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100/50 [&::-webkit-scrollbar-thumb]:bg-gradient-to-b [&::-webkit-scrollbar-thumb]:from-interview-purple [&::-webkit-scrollbar-thumb]:to-interview-dark-purple [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb:hover]:from-interview-purple/80 [&::-webkit-scrollbar-thumb:hover]:to-interview-dark-purple/80"
+        className="min-h-[400px] max-h-[480px] overflow-y-auto p-4 bg-gray-50/90 rounded-xl border-2 border-slate-300 shadow-inner scroll-smooth [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100/50 [&::-webkit-scrollbar-thumb]:bg-gradient-to-b [&::-webkit-scrollbar-thumb]:from-interview-purple [&::-webkit-scrollbar-thumb]:to-interview-dark-purple [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb:hover]:from-interview-purple/80 [&::-webkit-scrollbar-thumb:hover]:to-interview-dark-purple/80"
       >
         {messages.length === 0 && (
           <div className="text-purple-300 italic flex items-center justify-center min-h-[400px]">
@@ -55,8 +65,8 @@ export default function ConversationHistory({ messages, interactionMode, isConne
             </div>
             <div className={`text-base leading-relaxed text-gray-800 p-3 px-4 rounded-xl break-words border ${
               msg.role === 'user'
-                ? 'bg-gradient-to-br from-blue-200 to-purple-300 text-white border-blue-300/50 rounded-bl shadow-md shadow-blue-300/30 before:content-[">_"] before:text-black/20 before:mr-1'
-                : 'bg-gradient-to-br from-purple-300 to-yellow-200 text-gray-800 border-purple-300/50 rounded-br shadow-md shadow-purple-300/30 before:content-[">_"] before:text-black/20 before:mr-1'
+                ? 'bg-gradient-to-br from-blue-100 to-slate-200 text-gray-800 border-slate-300/50 rounded-bl shadow-md shadow-slate-300/30 before:content-[">_"] before:text-black/20 before:mr-1'
+                : 'bg-gradient-to-br from-slate-100 to-gray-100 text-gray-800 border-slate-300/50 rounded-br shadow-md shadow-slate-300/30 before:content-[">_"] before:text-black/20 before:mr-1'
             }`}>
               {msg.content}
             </div>
@@ -64,11 +74,11 @@ export default function ConversationHistory({ messages, interactionMode, isConne
           </div>
         ))}
         <div className="clear-both"></div>
-      </div>
+      </div>}
       
       {/* Text Response Input (shown only in text mode when connected) */}
-      {interactionMode === 'text' && isConnected && (
-        <div className="mt-4 p-4 bg-interview-purple/5 rounded-xl border-2 border-interview-purple/30">
+      {interactionMode === 'text' && isConnected && isVisible && (
+        <div className="mt-4 p-4 bg-slate-50 rounded-xl border-2 border-slate-300">
           <label className="mb-2 block font-semibold">
             <i className="fa-solid fa-keyboard"></i> Your Response:
           </label>

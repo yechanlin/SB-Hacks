@@ -11,9 +11,9 @@ export default {
       },
       colors: {
         'interview': {
-          'purple': '#667eea',
-          'dark-purple': '#764ba2',
-          'pink': '#f093fb',
+          'purple': '#1e3a8a',
+          'dark-purple': '#0f172a',
+          'pink': '#475569',
         }
       }
     },

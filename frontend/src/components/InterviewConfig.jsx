@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function InterviewConfig({ config, setConfig, stats, isConnected }) {
+export default function InterviewConfig({ config, setConfig, stats, isConnected, compact }) {
   const [resumeFileName, setResumeFileName] = useState('No file selected');
 
   const handleRoleChange = (e) => {
@@ -49,14 +49,13 @@ export default function InterviewConfig({ config, setConfig, stats, isConnected 
   };
 
   return (
-    <div className="bg-white/95 backdrop-blur-lg border-2 border-interview-purple/30 rounded-2xl p-6 mb-6 shadow-xl shadow-interview-purple/15">
-      <h2 className="text-2xl mb-8 text-center text-interview-purple uppercase tracking-widest font-bold">
+    <div className={`bg-white/95 backdrop-blur-lg border-2 border-slate-300 rounded-2xl ${compact ? 'p-4 mb-4' : 'p-6 mb-6'} shadow-xl shadow-slate-300/50 w-full`}>
+      <h2 className={`text-2xl ${compact ? 'mb-4' : 'mb-8'} text-center text-interview-purple uppercase tracking-widest font-bold`}>
         <i className="fa-solid fa-sliders"></i> Interview Setup
       </h2>
-      
-      <div className="grid md:grid-cols-2 gap-8 mb-8">
+      <div className={`grid md:grid-cols-2 ${compact ? 'gap-4 mb-4' : 'gap-8 mb-8'}`}>
         {/* Left Column */}
-        <div className="flex flex-col gap-6">
+        <div className={`flex flex-col ${compact ? 'gap-3' : 'gap-6'}`}>
           {/* Role Section */}
           <div className="p-6 rounded-xl border-2 bg-gradient-to-br from-interview-purple/10 to-interview-dark-purple/10 border-interview-purple/20">
             <h3 className="text-sm font-semibold mb-4 uppercase tracking-wider text-interview-purple">
@@ -207,34 +206,6 @@ export default function InterviewConfig({ config, setConfig, stats, isConnected 
         </div>
       </div>
       
-      {/* Interview Stats */}
-      {stats.isActive && (
-        <div className="mt-4 p-6 bg-gradient-to-br from-white/95 to-gray-100/95 backdrop-blur-lg rounded-2xl border-4 border-interview-purple/40 shadow-2xl shadow-interview-purple/20">
-          <h3 className="text-sm font-semibold mb-5 text-center uppercase tracking-wider text-interview-purple">
-            <i className="fa-solid fa-chart-line"></i> Interview Progress
-          </h3>
-          <div className="grid grid-cols-3 gap-6 text-center">
-            <div className="p-4 bg-white/80 rounded-xl border-2 border-blue-500/20">
-              <div className="text-xs text-gray-600 font-semibold mb-2 uppercase tracking-wide">
-                <i className="fa-solid fa-comment-dots"></i> Questions
-              </div>
-              <div className="text-3xl font-bold text-blue-500 drop-shadow">{stats.questionsCount}</div>
-            </div>
-            <div className="p-4 bg-white/80 rounded-xl border-2 border-blue-500/20">
-              <div className="text-xs text-gray-600 font-semibold mb-2 uppercase tracking-wide">
-                <i className="fa-solid fa-clock"></i> Duration
-              </div>
-              <div className="text-3xl font-bold text-blue-500 drop-shadow">{stats.duration}</div>
-            </div>
-            <div className="p-4 bg-white/80 rounded-xl border-2 border-blue-500/20">
-              <div className="text-xs text-gray-600 font-semibold mb-2 uppercase tracking-wide">
-                <i className="fa-solid fa-circle-check"></i> Status
-              </div>
-              <div className="text-2xl font-bold text-yellow-500 drop-shadow">{stats.status}</div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

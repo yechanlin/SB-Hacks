@@ -43,7 +43,7 @@ export default function InterviewControls({ isConnected, status, onStart, onEnd,
   const statusInfo = getStatusInfo();
 
   return (
-    <div className="bg-white/95 backdrop-blur-lg border-2 border-interview-purple/30 rounded-2xl p-6 mb-6 shadow-xl shadow-interview-purple/15">
+    <div className="bg-white/95 backdrop-blur-lg border-2 border-slate-300 rounded-2xl p-6 mb-6 shadow-xl shadow-slate-300/50">
       <h2 className="text-xl mb-4 text-center text-interview-purple uppercase tracking-widest font-bold flex items-center justify-center gap-3">
         <i className="fa-solid fa-sliders"></i> Interview Controls
       </h2>
