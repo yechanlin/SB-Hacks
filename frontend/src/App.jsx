@@ -24,7 +24,8 @@ function App() {
     startInterview,
     endInterview,
     resetInterview,
-    sendTextResponse
+    sendTextResponse,
+    injectHint
   } = useVoiceAgent(config);
 
   return (
@@ -59,6 +60,7 @@ function App() {
           endInterview={endInterview}
           resetInterview={resetInterview}
           sendTextResponse={sendTextResponse}
+          injectHint={injectHint}
           onBack={() => setPage('landing')}
         />
       )}

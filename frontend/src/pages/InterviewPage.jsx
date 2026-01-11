@@ -16,6 +16,7 @@ export default function InterviewPage({
   endInterview,
   resetInterview,
   sendTextResponse,
+  injectHint,
   onBack
 }) {
   const isTechnical = config.interviewType === 'technical' || config.interviewType === 'mixed';
@@ -80,7 +81,12 @@ export default function InterviewPage({
         {/* Right Column: Code Editor or Notes */}
         <div className="h-full p-6 overflow-hidden flex flex-col">
           {isTechnical ? (
-            <CodeEditor interviewType={config.interviewType} isConnected={isConnected} />
+            <CodeEditor 
+              interviewType={config.interviewType} 
+              isConnected={isConnected} 
+              sendTextResponse={sendTextResponse}
+              messages={messages}
+            />
           ) : (
             <div className="bg-white/95 backdrop-blur-lg border-2 border-slate-300 rounded-2xl p-3 shadow-lg shadow-slate-300/30 h-full flex flex-col">
               <h2 className="text-lg text-interview-purple uppercase tracking-widest font-bold mb-2">

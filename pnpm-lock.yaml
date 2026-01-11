@@ -11,6 +11,9 @@ importers:
       '@deepgram/sdk':
         specifier: 4.11.2
         version: 4.11.2
+      '@google/generative-ai':
+        specifier: ^0.21.0
+        version: 0.21.0
       dotenv:
         specifier: 16.3.1
         version: 16.3.1
@@ -42,6 +45,10 @@ packages:
 
   '@deepgram/sdk@4.11.2':
     resolution: {integrity: sha512-lKGxuXxlSixC8bB0BnzmIpbVjUSgYtz17cqvrgv0ZjmazgUPkuUj9egQPj6k+fbPX8wRzWEqlhrL/DXlXqeDXA==}
+    engines: {node: '>=18.0.0'}
+
+  '@google/generative-ai@0.21.0':
+    resolution: {integrity: sha512-7XhUbtnlkSEZK15kN3t+tzIMxsbKm/dSkKBFalj+20NvPKe1kBY7mR2P7vuijEn+f06z5+A8bVGKO0v39cr6Wg==}
     engines: {node: '>=18.0.0'}
 
   '@types/http-proxy@1.17.17':
@@ -956,6 +963,8 @@ snapshots:
       - bufferutil
       - encoding
       - utf-8-validate
+
+  '@google/generative-ai@0.21.0': {}
 
   '@types/http-proxy@1.17.17':
     dependencies:

@@ -34,11 +34,12 @@ export function useVoiceAgent(config) {
   }, []);
 
   // Add message to conversation
-  const addMessage = useCallback((role, content) => {
+  const addMessage = useCallback((role, content, metadata = {}) => {
     setMessages(prev => [...prev, {
       role,
       content,
-      timestamp: new Date().toLocaleTimeString()
+      timestamp: new Date().toLocaleTimeString(),
+      ...metadata
     }]);
     
     if (role === 'interviewer') {
@@ -277,8 +278,71 @@ export function useVoiceAgent(config) {
       lead: 'lead/principal position (10+ years)'
     }[cfg.difficulty] || 'mid-level position';
 
+    const isTechnicalInterview = cfg.interviewType === 'technical' || cfg.interviewType === 'mixed';
+    
+    const codingProblemContext = isTechnicalInterview ? `
+
+
+╔════════════════════════════════════════════════════════════════╗
+║              CODING PROBLEM FOR THIS INTERVIEW                 ║
+╚════════════════════════════════════════════════════════════════╝
+
+Problem: Two Sum
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROBLEM STATEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Given an array of integers nums and an integer target, return indices of 
+the two numbers such that they add up to target.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONSTRAINTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+• You may assume that each input would have exactly one solution
+• You may not use the same element twice
+• You can return the answer in any order
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EXAMPLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Example 1:
+  Input:  nums = [2, 7, 11, 15], target = 9
+  Output: [0, 1]
+  Explanation: nums[0] + nums[1] = 2 + 7 = 9
+
+Example 2:
+  Input:  nums = [3, 2, 4], target = 6
+  Output: [1, 2]
+  Explanation: nums[1] + nums[2] = 2 + 4 = 6
+
+Example 3:
+  Input:  nums = [3, 3], target = 6
+  Output: [0, 1]
+  Explanation: nums[0] + nums[1] = 3 + 3 = 6
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+IMPORTANT - CODING PROBLEM INTERVIEW BEHAVIOR:
+- After asking background questions, introduce the coding problem
+- IMPORTANT: When you first introduce the coding problem, you MUST include the exact phrase "[SHOW_PROBLEM]" at the start of your message (the candidate won't see this marker, it's just a signal)
+- Example: "[SHOW_PROBLEM] Now I'd like you to solve a coding problem. I'll present it to you, and you'll code your solution in the editor. Take your time to think it through."
+- Then present the problem clearly: "Here's the problem: Given an array of integers and a target sum, find the indices of two numbers that add up to the target."
+- Give them space to think and code - don't rush them
+- If they seem stuck, provide gentle hints but don't give away the solution
+- When they submit their code, you'll receive feedback about their solution via system messages
+- Use that feedback to provide hints and guidance conversationally
+- Be encouraging but challenging - help them think through edge cases
+- If their solution is incorrect, give hints to guide them toward the correct approach (e.g., "Think about data structures that could help you look up values quickly", "Consider the time complexity - can you do better than O(n²)?")
+- If correct, ask them to explain their approach and discuss time/space complexity
+- Keep the conversation natural - integrate hints into the conversation flow
+- Don't just read the feedback verbatim - rephrase it conversationally
+` : '';
+
     return `You are Jordan Lee, a demanding Senior Engineering Director at a top-tier tech company, conducting a rigorous interview for a ${roleName} ${experienceLevel} at ${companyName}. You have exceptionally high standards and limited patience for vague answers.
-${resumeContext}
+${resumeContext}${codingProblemContext}
 
 Your interviewing style:
 - Direct and professional - no unnecessary small talk
@@ -298,7 +362,7 @@ Your interviewing style:
 Interview structure:
 1. Brief introduction - get straight to business
 2. "Walk me through your background - focus on what's relevant"
-3. Ask 5-7 increasingly difficult questions based on interview type
+3. ${isTechnicalInterview ? 'Introduce the coding problem and let them work on it. Provide hints when they submit code.' : 'Ask 5-7 increasingly difficult questions based on interview type'}
 4. Drill into weak areas without mercy
 5. Push them on technical details they claim to know
 6. Challenge assumptions in their answers
@@ -316,7 +380,12 @@ Critical behaviors:
 - Test if they actually understand the technologies they list
 - Challenge them to explain complex concepts simply
 - React with skepticism to overconfident claims
-- Don't let them dodge technical questions with soft skills talk${cfg.interactionMode === 'text' ? '\n\nNOTE: The candidate will be typing their responses, not speaking. Keep your questions clear and wait for their text input.' : ''}`;
+- Don't let them dodge technical questions with soft skills talk
+
+FORMATTING INSTRUCTIONS:
+- Do NOT use markdown formatting in your responses (no **bold**, no *italic*, no code blocks, etc.)
+- Write in plain text only - avoid any markdown syntax including asterisks for bold text
+- Do not include ** or any markdown symbols in your responses${cfg.interactionMode === 'text' ? '\n\nNOTE: The candidate will be typing their responses, not speaking. Keep your questions clear and wait for their text input.' : ''}`;
   };
 
   // Start interview
@@ -436,7 +505,13 @@ Critical behaviors:
               startInterviewTimer();
               startStreaming();
             } else if (message.type === 'ConversationText') {
-              addMessage(message.role === 'user' ? 'user' : 'interviewer', message.content);
+              const role = message.role === 'user' ? 'user' : 'interviewer';
+              // Check for the [SHOW_PROBLEM] marker before stripping
+              const hasShowProblemMarker = message.content.includes('[SHOW_PROBLEM]');
+              // Remove the [SHOW_PROBLEM] marker from the content before displaying
+              const content = message.content.replace(/\[SHOW_PROBLEM\]\s*/g, '');
+              // Pass the marker info as metadata
+              addMessage(role, content, hasShowProblemMarker ? { showProblem: true } : {});
             } else if (message.type === 'Error') {
               console.error('Agent error:', message);
               updateStatus('error', 'ERROR: ' + message.description);
@@ -553,6 +628,20 @@ Critical behaviors:
     socketRef.current.send(JSON.stringify(injectMessage));
   }, []);
 
+  // Inject hint/context into the conversation (for code feedback)
+  const injectHint = useCallback((hint) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    const contextMessage = {
+      type: 'InjectAgentContext',
+      content: `[SYSTEM: Provide this feedback to the candidate as part of our conversation: ${hint}]`
+    };
+
+    socketRef.current.send(JSON.stringify(contextMessage));
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -568,6 +657,7 @@ Critical behaviors:
     startInterview,
     endInterview,
     resetInterview,
-    sendTextResponse
+    sendTextResponse,
+    injectHint
   };
 }
