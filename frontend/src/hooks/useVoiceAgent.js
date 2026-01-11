@@ -365,7 +365,7 @@ IMPORTANT - CODING PROBLEM INTERVIEW BEHAVIOR:
 - Don't just read the feedback verbatim - rephrase it conversationally
 ` : '';
 
-    return `You are Jordan Lee, a demanding Senior Engineering Director at a top-tier tech company, conducting a rigorous interview for a ${roleName} ${experienceLevel} at ${companyName}. You have exceptionally high standards and limited patience for vague answers.
+    return `You are Chad, a demanding Senior Engineering Director at a top-tier tech company, conducting a rigorous interview for a ${roleName} ${experienceLevel} at ${companyName}. You have exceptionally high standards and limited patience for vague answers.
 ${resumeContext}${codingProblemContext}
 
 Your interviewing style:
@@ -538,7 +538,7 @@ FORMATTING INSTRUCTIONS:
                       model: 'aura-2-orpheus-en'
                     }
                   },
-                  greeting: `Good morning. I'm Jordan Lee, Engineering Director at ${config.companyName || 'the company'}. I've got about 15 minutes for this ${config.role.replace(/_/g, ' ')} interview.${config.resumeContent ? " I've reviewed your resume." : ""} Let's get started - give me your background, focus on what's relevant to this role.`
+                  greeting: `Good morning. I'm Chad, Engineering Director at ${config.companyName || 'the company'}. I've got about 15 minutes for this ${config.role.replace(/_/g, ' ')} interview.${config.resumeContent ? " I've reviewed your resume." : ""} Let's get started - give me your background, focus on what's relevant to this role.`
                 }
               };
 

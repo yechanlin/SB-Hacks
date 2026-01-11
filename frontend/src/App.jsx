@@ -35,7 +35,7 @@ function App() {
         <div className="max-w-7xl mx-auto flex justify-center items-center">
           <div className="flex items-center gap-3">
             <i className="fa-solid fa-user-tie text-2xl text-interview-purple"></i>
-            <h1 className="text-2xl font-semibold text-interview-purple m-0">AI Mock Interview Agent</h1>
+            <h1 className="text-2xl font-semibold text-interview-purple m-0">Chad the AI Mock Interviewer  </h1>
           </div>
         </div>
       </header>

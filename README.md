@@ -1,4 +1,4 @@
-# AI Mock Interview Agent
+# Chad the AI Mock Interviewer  
 
 An intelligent interview practice platform powered by Deepgram's Voice Agent API. Features real-time voice or text-based interviews with AI-driven behavioral and technical questions, resume analysis, and AI-powered feedback generation.
 
