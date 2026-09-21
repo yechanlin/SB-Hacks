@@ -30,18 +30,18 @@ export function useVoiceAgent(config) {
   const gainNodeRef = useRef(null);
   const gainConnectedRef = useRef(false);
   const sessionIdRef = useRef(null); // Use ref to avoid stale closure issues
-  const basePromptRef = useRef('');
   const lastErrorRef = useRef(null);
 
-  // Steer the interviewer mid-session. Deepgram has no "context" message, so
-  // we re-send the prompt with a note appended (UpdatePrompt).
+  // Steer the interviewer mid-session. Deepgram's UpdatePrompt APPENDS to the
+  // existing prompt, so send only a short note, never the full script, or the
+  // agent reads the re-sent structure as fresh orders and restarts.
   const steerAgent = (note) => {
-    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN || !basePromptRef.current) {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
       return;
     }
     socketRef.current.send(JSON.stringify({
       type: 'UpdatePrompt',
-      prompt: `${basePromptRef.current}\n\nLIVE NOTE FROM THE INTERVIEW SYSTEM: ${note}`
+      prompt: `Live update from the interview system (supersedes earlier live updates): ${note} Continue the interview from the current exchange. Do not restart, and do not repeat the introduction or the background question.`
     }));
   };
 
@@ -410,6 +410,7 @@ Interview structure:
 9. End professionally but don't over-praise
 
 Critical behaviors:
+- Never restart the interview or repeat an earlier question. Always continue from the most recent exchange, even if your instructions are updated mid-session
 - No hand-holding - if they struggle, that's valuable signal
 - Push for concrete examples, not theoretical knowledge
 - Call out hand-wavy answers directly
@@ -521,7 +522,6 @@ FORMATTING INSTRUCTIONS:
               updateStatus('connected', 'CONNECTED');
 
               const interviewPrompt = generateInterviewPrompt(config);
-              basePromptRef.current = interviewPrompt;
 
               const settings = {
                 type: 'Settings',
