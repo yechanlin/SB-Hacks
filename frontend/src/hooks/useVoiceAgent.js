@@ -30,6 +30,20 @@ export function useVoiceAgent(config) {
   const gainNodeRef = useRef(null);
   const gainConnectedRef = useRef(false);
   const sessionIdRef = useRef(null); // Use ref to avoid stale closure issues
+  const basePromptRef = useRef('');
+  const lastErrorRef = useRef(null);
+
+  // Steer the interviewer mid-session. Deepgram has no "context" message, so
+  // we re-send the prompt with a note appended (UpdatePrompt).
+  const steerAgent = (note) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN || !basePromptRef.current) {
+      return;
+    }
+    socketRef.current.send(JSON.stringify({
+      type: 'UpdatePrompt',
+      prompt: `${basePromptRef.current}\n\nLIVE NOTE FROM THE INTERVIEW SYSTEM: ${note}`
+    }));
+  };
 
   const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 
@@ -185,11 +199,7 @@ export function useVoiceAgent(config) {
 
     if (currentMinute !== lastTimeCheckMinuteRef.current && [5, 10, 15].includes(currentMinute)) {
       const timeRemaining = 20 - currentMinute;
-      const contextMessage = {
-        type: 'InjectAgentContext',
-        content: `[SYSTEM: ${currentMinute} minutes have passed. About ${timeRemaining} minutes remaining. ${currentMinute >= 15 ? 'Begin wrapping up - mention time naturally like "We have about 5 minutes left, so let me ask one more question..."' : currentMinute === 10 ? 'Mention time casually: "We\'re about halfway through..."' : ''}]`
-      };
-      socketRef.current.send(JSON.stringify(contextMessage));
+      steerAgent(`${currentMinute} minutes have passed, about ${timeRemaining} remain. ${currentMinute >= 15 ? 'Begin wrapping up. Mention the time naturally, for example "We have about five minutes left, so let me ask one more question."' : currentMinute === 10 ? 'Mention casually that you are about halfway through.' : 'Keep the pace up.'}`);
       lastTimeCheckMinuteRef.current = currentMinute;
     }
   };
@@ -422,6 +432,7 @@ FORMATTING INSTRUCTIONS:
     try {
       updateStatus('connecting', 'CONNECTING');
       setAgentState('connecting');
+      lastErrorRef.current = null;
 
       // Create session in backend
       try {
@@ -510,6 +521,7 @@ FORMATTING INSTRUCTIONS:
               updateStatus('connected', 'CONNECTED');
 
               const interviewPrompt = generateInterviewPrompt(config);
+              basePromptRef.current = interviewPrompt;
 
               const settings = {
                 type: 'Settings',
@@ -569,7 +581,8 @@ FORMATTING INSTRUCTIONS:
               addMessage(role, content, metadata);
             } else if (message.type === 'Error') {
               console.error('Agent error:', message);
-              updateStatus('error', 'ERROR: ' + message.description);
+              lastErrorRef.current = message.description || 'Unknown error';
+              updateStatus('error', 'ERROR: ' + lastErrorRef.current);
             } else if (message.type === 'UserStartedSpeaking') {
               setAgentState('listening');
               userSpeakingStartTimeRef.current = Date.now();
@@ -595,11 +608,18 @@ FORMATTING INSTRUCTIONS:
         updateStatus('error', 'ERROR: Connection error');
       };
 
-      socketRef.current.onclose = () => {
-        console.log('WebSocket closed');
+      socketRef.current.onclose = (event) => {
+        console.log('WebSocket closed', event.code, event.reason);
         setAgentState('idle');
         setIsConnected(false);
-        updateStatus('disconnected', 'DISCONNECTED');
+        stopInterviewTimer();
+        if (lastErrorRef.current) {
+          updateStatus('error', 'ERROR: ' + lastErrorRef.current);
+        } else if (event.code !== 1000 && event.code !== 1005) {
+          updateStatus('error', 'ERROR: Connection closed unexpectedly' + (event.reason ? ` (${event.reason})` : ''));
+        } else {
+          updateStatus('disconnected', 'DISCONNECTED');
+        }
       };
 
     } catch (error) {
@@ -607,7 +627,7 @@ FORMATTING INSTRUCTIONS:
       setAgentState('idle');
       updateStatus('error', 'ERROR: ' + error.message);
     }
-  }, [config, updateStatus, addMessage, startInterviewTimer, startStreaming, playAudio]);
+  }, [config, updateStatus, addMessage, startInterviewTimer, stopInterviewTimer, startStreaming, playAudio]);
 
   // Send interruption signal
   const sendInterruptionSignal = () => {
@@ -615,12 +635,7 @@ FORMATTING INSTRUCTIONS:
       return;
     }
 
-    const contextMessage = {
-      type: 'InjectAgentContext',
-      content: '[SYSTEM: User has been speaking for over 90 seconds. Politely interrupt NOW with phrases like "That\'s great context, let me stop you there for a moment..." or "I appreciate all that detail - can I ask you specifically about..."]'
-    };
-
-    socketRef.current.send(JSON.stringify(contextMessage));
+    steerAgent('The candidate has been talking for over 90 seconds. As soon as you can, cut in politely, for example "Let me stop you there for a moment" or "I appreciate the detail, can I ask you specifically about...", and redirect to a specific question.');
     userSpeakingStartTimeRef.current = null;
   };
 
@@ -707,20 +722,6 @@ FORMATTING INSTRUCTIONS:
     setAgentState('thinking');
   }, []);
 
-  // Inject hint/context into the conversation (for code feedback)
-  const injectHint = useCallback((hint) => {
-    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
-      return;
-    }
-
-    const contextMessage = {
-      type: 'InjectAgentContext',
-      content: `[SYSTEM: Provide this feedback to the candidate as part of our conversation: ${hint}]`
-    };
-
-    socketRef.current.send(JSON.stringify(contextMessage));
-  }, []);
-
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -759,7 +760,6 @@ FORMATTING INSTRUCTIONS:
     startInterview,
     endInterview,
     resetInterview,
-    sendTextResponse,
-    injectHint
+    sendTextResponse
   };
 }
