@@ -1,4 +1,17 @@
 import React, { useEffect, useRef } from 'react';
+import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
+import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
+
+// Tell Monaco how to spawn its workers under Vite, otherwise it falls back to
+// running language services on the main thread and warns in the console.
+if (typeof self !== 'undefined' && !self.MonacoEnvironment) {
+  self.MonacoEnvironment = {
+    getWorker(_workerId, label) {
+      if (label === 'typescript' || label === 'javascript') return new TsWorker();
+      return new EditorWorker();
+    }
+  };
+}
 
 const LANGUAGE_MAP = {
   javascript: 'javascript',

@@ -63,22 +63,21 @@ app.get('/api/problem', (req, res) => {
   res.json(PROBLEMS[DEFAULT_PROBLEM_ID]);
 });
 
-// Development: Proxy to Vite dev server (only non-API routes)
-// Production: Serve static files
+// Development: proxy page requests to the Vite dev server.
+// Production: serve the built frontend.
+// http-proxy-middleware v3 uses `pathFilter` (the v2 `filter` option is ignored).
+// WebSocket upgrades are routed manually below so the proxy never fights the
+// voice-agent WebSocket server for the same socket.
+let viteProxy = null;
 if (CONFIG.isDevelopment) {
   console.log(`Development mode: Proxying to Vite dev server on port ${CONFIG.vitePort}`);
-  // Use filter option to exclude API routes from proxying
-  app.use(
-    createProxyMiddleware({
-      target: `http://localhost:${CONFIG.vitePort}`,
-      changeOrigin: true,
-      ws: true, // Enable WebSocket proxying for Vite HMR
-      filter: (pathname, req) => {
-        // Don't proxy API routes or WebSocket endpoints - handle by Express
-        return !pathname.startsWith('/api') && !pathname.startsWith('/agent');
-      }
-    })
-  );
+  viteProxy = createProxyMiddleware({
+    target: `http://localhost:${CONFIG.vitePort}`,
+    changeOrigin: true,
+    ws: false,
+    pathFilter: (pathname) => !pathname.startsWith('/api') && !pathname.startsWith('/agent')
+  });
+  app.use(viteProxy);
 } else {
   console.log('Production mode: Serving static files from frontend/dist');
   const distPath = path.join(__dirname, 'frontend', 'dist');
@@ -98,10 +97,20 @@ server.on('error', (err) => {
   throw err;
 });
 
-// Create WebSocket server with path filtering
-const wss = new WebSocketServer({
-  server,
-  path: '/agent/converse'
+// Voice-agent WebSocket server. It does not attach to the HTTP server itself;
+// the upgrade handler below decides which upgrades it receives.
+const wss = new WebSocketServer({ noServer: true });
+
+server.on('upgrade', (req, socket, head) => {
+  const { pathname } = new URL(req.url, 'http://localhost');
+  if (pathname === '/agent/converse') {
+    wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
+  } else if (viteProxy) {
+    // Vite HMR socket in development
+    viteProxy.upgrade(req, socket, head);
+  } else {
+    socket.destroy();
+  }
 });
 
 // Handle WebSocket connections
