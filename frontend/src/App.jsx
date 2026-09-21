@@ -1,73 +1,69 @@
-import React, { useState, useRef } from 'react';
-import InterviewPage from './pages/InterviewPage';
-import LandingPage from './pages/LandingPage';
+import React, { useState } from 'react';
+import SetupPage from './pages/SetupPage';
+import SessionPage from './pages/SessionPage';
+import ReportPage from './pages/ReportPage';
 import { useVoiceAgent } from './hooks/useVoiceAgent';
 import './App.css';
 
-function App() {
-  const [config, setConfig] = useState({
-    role: 'software_engineer',
-    customRole: '',
-    companyName: '',
-    resumeContent: '',
-    interviewType: 'behavioral',
-    difficulty: 'mid',
-    interactionMode: 'speech'
-  });
-  const [page, setPage] = useState('landing');
+const DEFAULT_CONFIG = {
+  role: 'software_engineer',
+  customRole: '',
+  companyName: '',
+  resumeContent: '',
+  resumeFileName: '',
+  interviewType: 'behavioral',
+  difficulty: 'mid',
+  interactionMode: 'speech'
+};
 
-  const {
-    isConnected,
-    status,
-    messages,
-    interviewStats,
-    sessionId,
-    startInterview,
-    endInterview,
-    resetInterview,
-    sendTextResponse,
-    injectHint
-  } = useVoiceAgent(config);
+export default function App() {
+  const [config, setConfig] = useState(DEFAULT_CONFIG);
+  const [page, setPage] = useState('setup');
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-gray-200 to-slate-200 bg-fixed font-jura">
-      <header className="bg-gradient-to-r from-white to-gray-50 border-b-4 border-interview-purple shadow-lg shadow-slate-300/50 p-4 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto flex justify-center items-center">
-          <div className="flex items-center gap-3">
-            <i className="fa-solid fa-user-tie text-2xl text-interview-purple"></i>
-            <h1 className="text-2xl font-semibold text-interview-purple m-0">Chad the AI Mock Interviewer  </h1>
-          </div>
-        </div>
-      </header>
+  const agent = useVoiceAgent(config);
 
-      {page === 'landing' ? (
-        <LandingPage
-          config={config}
-          setConfig={setConfig}
-          interviewStats={interviewStats}
-          isConnected={isConnected}
-          onProceed={() => setPage('interview')}
-        />
-      ) : (
-        <InterviewPage
-          config={config}
-          setConfig={setConfig}
-          messages={messages}
-          interactionMode={config.interactionMode}
-          isConnected={isConnected}
-          status={status}
-          interviewStats={interviewStats}
-          startInterview={startInterview}
-          endInterview={endInterview}
-          resetInterview={resetInterview}
-          sendTextResponse={sendTextResponse}
-          injectHint={injectHint}
-          onBack={() => setPage('landing')}
-          sessionId={sessionId}
-        />
-      )}
-    </div>
-  );
+  const handleStart = () => {
+    setPage('session');
+    agent.startInterview();
+  };
+
+  const handleEnd = async () => {
+    await agent.endInterview();
+    setPage('report');
+  };
+
+  const handleRestart = () => {
+    agent.resetInterview();
+    setPage('setup');
+  };
+
+  if (page === 'session') {
+    return (
+      <SessionPage
+        config={config}
+        agentState={agent.agentState}
+        status={agent.status}
+        isConnected={agent.isConnected}
+        messages={agent.messages}
+        interviewStats={agent.interviewStats}
+        onSendText={agent.sendTextResponse}
+        onEnd={handleEnd}
+        onAbort={handleRestart}
+      />
+    );
+  }
+
+  if (page === 'report') {
+    return (
+      <ReportPage
+        config={config}
+        sessionId={agent.sessionId}
+        interviewStats={agent.interviewStats}
+        messages={agent.messages}
+        onRestart={handleRestart}
+      />
+    );
+  }
+
+  return <SetupPage config={config} setConfig={setConfig} onStart={handleStart} />;
 }
-
-export default App;

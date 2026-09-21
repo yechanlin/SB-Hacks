@@ -6,6 +6,8 @@ export function useVoiceAgent(config) {
   const [status, setStatus] = useState('DISCONNECTED');
   const [messages, setMessages] = useState([]);
   const [sessionId, setSessionId] = useState(null);
+  // idle | connecting | listening | thinking | speaking
+  const [agentState, setAgentState] = useState('idle');
   const [interviewStats, setInterviewStats] = useState({
     isActive: false,
     questionsCount: 0,
@@ -131,10 +133,13 @@ export function useVoiceAgent(config) {
       source.start(startTimeRef.current);
       startTimeRef.current += manualBuf.duration;
       scheduledSourcesRef.current.push(source);
+      setAgentState('speaking');
 
       source.onended = () => {
         scheduledSourcesRef.current = scheduledSourcesRef.current.filter(s => s !== source);
-        console.log('Audio playback finished');
+        if (scheduledSourcesRef.current.length === 0) {
+          setAgentState('listening');
+        }
       };
 
       console.log('Scheduled raw PCM audio at', startTimeRef.current - manualBuf.duration, 'duration', manualBuf.duration);
@@ -391,7 +396,7 @@ Interview structure:
 5. Push them on technical details they claim to know
 6. Challenge assumptions in their answers
 7. Test problem-solving under pressure
-8. After 15 minutes, cut to final question
+8. After about 18 minutes, cut to the final question
 9. End professionally but don't over-praise
 
 Critical behaviors:
@@ -416,11 +421,12 @@ FORMATTING INSTRUCTIONS:
   const startInterview = useCallback(async () => {
     try {
       updateStatus('connecting', 'CONNECTING');
+      setAgentState('connecting');
 
       // Create session in backend
       try {
         const sessionResponse = await createSession(config, {
-          fileName: '',
+          fileName: config.resumeFileName || '',
           content: config.resumeContent || ''
         });
         if (sessionResponse.success && sessionResponse.session) {
@@ -538,13 +544,14 @@ FORMATTING INSTRUCTIONS:
                       model: 'aura-2-orpheus-en'
                     }
                   },
-                  greeting: `Good morning. I'm Chad, Engineering Director at ${config.companyName || 'the company'}. I've got about 15 minutes for this ${config.role.replace(/_/g, ' ')} interview.${config.resumeContent ? " I've reviewed your resume." : ""} Let's get started - give me your background, focus on what's relevant to this role.`
+                  greeting: `Good morning. I'm Chad, Engineering Director at ${config.companyName || 'the company'}. I've got about 20 minutes for this ${config.role.replace(/_/g, ' ')} interview.${config.resumeContent ? " I've reviewed your resume." : ""} Let's get started - give me your background, focus on what's relevant to this role.`
                 }
               };
 
               socketRef.current.send(JSON.stringify(settings));
             } else if (message.type === 'SettingsApplied') {
               updateStatus('connected', 'CONNECTED');
+              setAgentState('listening');
               startInterviewTimer();
               startStreaming();
             } else if (message.type === 'ConversationText') {
@@ -564,6 +571,7 @@ FORMATTING INSTRUCTIONS:
               console.error('Agent error:', message);
               updateStatus('error', 'ERROR: ' + message.description);
             } else if (message.type === 'UserStartedSpeaking') {
+              setAgentState('listening');
               userSpeakingStartTimeRef.current = Date.now();
               setTimeout(() => {
                 if (userSpeakingStartTimeRef.current && (Date.now() - userSpeakingStartTimeRef.current) >= 90000) {
@@ -573,6 +581,7 @@ FORMATTING INSTRUCTIONS:
             } else if (message.type === 'UserStoppedSpeaking') {
               userSpeakingStartTimeRef.current = null;
             } else if (message.type === 'AgentThinking') {
+              setAgentState('thinking');
               userSpeakingStartTimeRef.current = null;
             }
           } catch (error) {
@@ -588,12 +597,14 @@ FORMATTING INSTRUCTIONS:
 
       socketRef.current.onclose = () => {
         console.log('WebSocket closed');
+        setAgentState('idle');
         setIsConnected(false);
         updateStatus('disconnected', 'DISCONNECTED');
       };
 
     } catch (error) {
       console.error('Error starting interview:', error);
+      setAgentState('idle');
       updateStatus('error', 'ERROR: ' + error.message);
     }
   }, [config, updateStatus, addMessage, startInterviewTimer, startStreaming, playAudio]);
@@ -663,6 +674,7 @@ FORMATTING INSTRUCTIONS:
     }
 
     setIsConnected(false);
+    setAgentState('idle');
     updateStatus('disconnected', 'DISCONNECTED');
   }, [stopStreaming, stopInterviewTimer, updateStatus, sessionId, interviewStats, messages]);
 
@@ -692,6 +704,7 @@ FORMATTING INSTRUCTIONS:
     };
 
     socketRef.current.send(JSON.stringify(injectMessage));
+    setAgentState('thinking');
   }, []);
 
   // Inject hint/context into the conversation (for code feedback)
@@ -739,6 +752,7 @@ FORMATTING INSTRUCTIONS:
   return {
     isConnected,
     status,
+    agentState,
     messages,
     interviewStats,
     sessionId,

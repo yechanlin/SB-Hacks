@@ -1,6 +1,8 @@
-# Chad the AI Mock Interviewer  
+# Rehearse
 
-An intelligent interview practice platform powered by Deepgram's Voice Agent API. Features real-time voice or text-based interviews with AI-driven behavioral and technical questions, resume analysis, and AI-powered feedback generation.
+Voice mock interviews with a demanding AI interviewer. Rehearse runs a timed, real-time interview over Deepgram's Voice Agent API, lets you answer by voice or text, drops a coding problem into an editor for technical rounds, and scores the transcript afterward.
+
+The interviewer persona is "Chad", an Engineering Director who pushes back on vague answers. This project started at SB Hacks.
 
 ## Features
 
@@ -76,11 +78,11 @@ pnpm start
 
 **4. Access the application**
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000) in your browser. Use port 3000, not the Vite port printed in the terminal: the Express server on 3000 serves the UI and hosts the WebSocket and API.
 
 ## Tech Stack
 
-- **Frontend**: React 18, Vite, Tailwind CSS v4
+- **Frontend**: React 19, Vite 7, Tailwind CSS v4, Monaco editor
 - **Backend**: Node.js with Express
 - **Database**: MongoDB (with Mongoose ODM)
 - **Voice AI**: Deepgram Voice Agent API (Speech-to-Text, GPT-4, Text-to-Speech)
@@ -105,6 +107,9 @@ The backend provides RESTful API endpoints for managing interview sessions, conv
 - `POST /api/sessions/:sessionId/feedback/generate` - Generate AI-powered feedback using OpenAI
 - `GET /api/sessions/:sessionId/report` - Get the latest feedback report for a session
 
+### Coding problem
+- `GET /api/problem` - The problem shown in the editor during technical interviews
+
 All conversations are stored in MongoDB during the interview, and feedback is generated using OpenAI's GPT-4o-mini model to provide comprehensive performance analysis.
 
 ## Getting Help
@@ -120,10 +125,6 @@ See our [Contributing Guidelines](./CONTRIBUTING.md) to learn about contributing
 ## Code of Conduct
 
 This project follows the [Deepgram Code of Conduct](./CODE_OF_CONDUCT.md).
-
-## Security
-
-For security policy and procedures, see our [Security Policy](./SECURITY.md).
 
 ## License
 

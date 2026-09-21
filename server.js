@@ -22,6 +22,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { connectDB } from './backend/db.js';
 import sessionsRouter from './backend/routes/sessions.js';
+import { PROBLEMS, DEFAULT_PROBLEM_ID } from './backend/problems.js';
 
 // Load environment variables (db.js also loads them, but this ensures they're loaded)
 dotenv.config();
@@ -56,6 +57,11 @@ app.use(express.urlencoded({ extended: true }));
 
 // API Routes - Mount BEFORE proxy to avoid proxying API requests
 app.use('/api/sessions', sessionsRouter);
+
+// Coding problem shown in the editor during technical interviews
+app.get('/api/problem', (req, res) => {
+  res.json(PROBLEMS[DEFAULT_PROBLEM_ID]);
+});
 
 // Development: Proxy to Vite dev server (only non-API routes)
 // Production: Serve static files
