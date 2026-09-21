@@ -67,6 +67,8 @@ Store generated feedback reports for sessions.
   generatedAt: Date,
   content: {
     summary: String,
+    verdict: String, // 'strong_no_hire' | 'no_hire' | 'borderline' | 'hire' | 'strong_hire'
+    verdictReason: String, // one sentence explaining the verdict
     strengths: [String],
     weaknesses: [String],
     recommendations: [String],

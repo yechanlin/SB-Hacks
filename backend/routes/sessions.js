@@ -9,6 +9,17 @@ dotenv.config();
 
 const router = express.Router();
 
+// Hiring verdict levels, ordered from worst to best. Must match Report.js.
+const VERDICT_LEVELS = ['strong_no_hire', 'no_hire', 'borderline', 'hire', 'strong_hire'];
+
+// Coerce whatever the model returned ("Strong Hire", "strong-hire", ...) into one
+// of the five allowed levels, or null if it does not map to any of them.
+function normalizeVerdict(value) {
+  if (typeof value !== 'string') return null;
+  const key = value.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return VERDICT_LEVELS.includes(key) ? key : null;
+}
+
 // POST /api/sessions - Create a new interview session
 router.post('/', async (req, res) => {
   try {
@@ -376,6 +387,8 @@ ${conversationText}
 Please provide comprehensive feedback in the following JSON format:
 {
   "summary": "A brief 2-3 sentence summary of the overall interview performance",
+  "verdict": "<exactly one of: strong_no_hire, no_hire, borderline, hire, strong_hire>",
+  "verdictReason": "One sentence explaining why you reached that hiring verdict",
   "strengths": ["List 3-5 specific strengths observed", "Be specific and reference examples from the conversation"],
   "weaknesses": ["List 3-5 areas for improvement", "Be constructive and specific"],
   "recommendations": ["List 3-5 actionable recommendations", "Be specific about how to improve"],
@@ -386,6 +399,8 @@ Please provide comprehensive feedback in the following JSON format:
     "behavior": <number 0-100>
   }
 }
+
+The verdict is the hiring decision you would make for this ${session.config.role || 'Software Engineer'} role based only on this interview. Use "borderline" only when the evidence genuinely cuts both ways, not as a default.
 
 Important: Return ONLY valid JSON, no additional text before or after. The JSON should be parseable.`;
 
@@ -442,9 +457,21 @@ Important: Return ONLY valid JSON, no additional text before or after. The JSON 
       });
     }
 
+    // Validate the hiring verdict against the five allowed levels. A missing or
+    // unrecognised verdict is dropped rather than failing the whole report; the
+    // frontend hides the verdict strip when it is absent.
+    const verdict = normalizeVerdict(feedbackData.verdict);
+    if (!verdict) {
+      console.warn(`Feedback for session ${sessionId} had no valid verdict (got: ${JSON.stringify(feedbackData.verdict)})`);
+    }
+    const verdictReason = verdict && typeof feedbackData.verdictReason === 'string'
+      ? feedbackData.verdictReason.trim()
+      : '';
+
     // Create report content
     const reportContent = {
       summary: feedbackData.summary,
+      ...(verdict ? { verdict, verdictReason } : {}),
       strengths: Array.isArray(feedbackData.strengths) ? feedbackData.strengths : [],
       weaknesses: Array.isArray(feedbackData.weaknesses) ? feedbackData.weaknesses : [],
       recommendations: Array.isArray(feedbackData.recommendations) ? feedbackData.recommendations : [],

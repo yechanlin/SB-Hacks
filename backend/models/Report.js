@@ -19,6 +19,11 @@ const reportSchema = new mongoose.Schema({
   },
   content: {
     summary: String,
+    verdict: {
+      type: String,
+      enum: ['strong_no_hire', 'no_hire', 'borderline', 'hire', 'strong_hire']
+    },
+    verdictReason: String,
     strengths: [String],
     weaknesses: [String],
     recommendations: [String],

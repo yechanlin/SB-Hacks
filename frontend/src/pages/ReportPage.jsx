@@ -10,6 +10,56 @@ const SCORE_ROWS = [
   ['behavior', 'Behavioral']
 ];
 
+// Hiring verdict levels, worst to best. Keys match Report.js; tone picks the
+// App.css token family: warn (red) for no-hire, accent (amber) for borderline,
+// good (green) for hire.
+const VERDICTS = [
+  { key: 'strong_no_hire', label: 'Strong no hire', tone: 'warn' },
+  { key: 'no_hire', label: 'No hire', tone: 'warn' },
+  { key: 'borderline', label: 'Borderline', tone: 'accent' },
+  { key: 'hire', label: 'Hire', tone: 'good' },
+  { key: 'strong_hire', label: 'Strong hire', tone: 'good' }
+];
+
+// Class strings are written out in full so Tailwind can see them.
+const TONE_ON = {
+  warn: 'bg-warn-soft border-warn text-warn',
+  accent: 'bg-accent-soft border-accent text-accent',
+  good: 'bg-good-soft border-good text-good'
+};
+const TONE_TEXT = { warn: 'text-warn', accent: 'text-accent', good: 'text-good' };
+
+function VerdictStrip({ verdict, reason }) {
+  const current = VERDICTS.find((v) => v.key === verdict);
+  if (!current) return null;
+  return (
+    <section className="flex flex-col gap-3" aria-label="Hiring verdict">
+      <h2 className="m-0 text-[13px] font-medium text-ink-muted">Verdict</h2>
+      <ol className="m-0 p-0 list-none grid grid-cols-5 gap-1" role="list">
+        {VERDICTS.map((v) => {
+          const on = v.key === verdict;
+          return (
+            <li
+              key={v.key}
+              aria-current={on ? 'true' : undefined}
+              className={`rounded-sm border px-1.5 py-2 text-center text-[11px] sm:text-[12px] font-medium leading-tight ${
+                on ? TONE_ON[v.tone] : 'border-line text-ink-faint'
+              }`}
+            >
+              {v.label}
+            </li>
+          );
+        })}
+      </ol>
+      {reason && (
+        <p className="m-0 text-[15px] leading-relaxed max-w-[65ch]">
+          <span className={`font-medium ${TONE_TEXT[current.tone]}`}>{current.label}.</span> {reason}
+        </p>
+      )}
+    </section>
+  );
+}
+
 function ScoreRow({ label, value }) {
   const v = Math.max(0, Math.min(100, Number(value) || 0));
   return (
@@ -119,6 +169,8 @@ export default function ReportPage({ config, sessionId, interviewStats, messages
 
           {phase === 'ready' && report && (
             <>
+              <VerdictStrip verdict={report.verdict} reason={report.verdictReason} />
+
               <section className="flex flex-col gap-3">
                 {SCORE_ROWS.map(([key, label]) => (
                   <ScoreRow key={key} label={label} value={report.scores?.[key]} />
