@@ -22,6 +22,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { connectDB } from './backend/db.js';
 import sessionsRouter from './backend/routes/sessions.js';
+import { PROBLEMS, DEFAULT_PROBLEM_ID } from './backend/problems.js';
 
 // Load environment variables (db.js also loads them, but this ensures they're loaded)
 dotenv.config();
@@ -57,22 +58,31 @@ app.use(express.urlencoded({ extended: true }));
 // API Routes - Mount BEFORE proxy to avoid proxying API requests
 app.use('/api/sessions', sessionsRouter);
 
-// Development: Proxy to Vite dev server (only non-API routes)
-// Production: Serve static files
+// Health check for hosting platforms
+app.get('/healthz', (req, res) => {
+  res.json({ ok: true });
+});
+
+// Coding problem shown in the editor during technical interviews
+app.get('/api/problem', (req, res) => {
+  res.json(PROBLEMS[DEFAULT_PROBLEM_ID]);
+});
+
+// Development: proxy page requests to the Vite dev server.
+// Production: serve the built frontend.
+// http-proxy-middleware v3 uses `pathFilter` (the v2 `filter` option is ignored).
+// WebSocket upgrades are routed manually below so the proxy never fights the
+// voice-agent WebSocket server for the same socket.
+let viteProxy = null;
 if (CONFIG.isDevelopment) {
   console.log(`Development mode: Proxying to Vite dev server on port ${CONFIG.vitePort}`);
-  // Use filter option to exclude API routes from proxying
-  app.use(
-    createProxyMiddleware({
-      target: `http://localhost:${CONFIG.vitePort}`,
-      changeOrigin: true,
-      ws: true, // Enable WebSocket proxying for Vite HMR
-      filter: (pathname, req) => {
-        // Don't proxy API routes or WebSocket endpoints - handle by Express
-        return !pathname.startsWith('/api') && !pathname.startsWith('/agent');
-      }
-    })
-  );
+  viteProxy = createProxyMiddleware({
+    target: `http://localhost:${CONFIG.vitePort}`,
+    changeOrigin: true,
+    ws: false,
+    pathFilter: (pathname) => !pathname.startsWith('/api') && !pathname.startsWith('/agent')
+  });
+  app.use(viteProxy);
 } else {
   console.log('Production mode: Serving static files from frontend/dist');
   const distPath = path.join(__dirname, 'frontend', 'dist');
@@ -92,10 +102,20 @@ server.on('error', (err) => {
   throw err;
 });
 
-// Create WebSocket server with path filtering
-const wss = new WebSocketServer({
-  server,
-  path: '/agent/converse'
+// Voice-agent WebSocket server. It does not attach to the HTTP server itself;
+// the upgrade handler below decides which upgrades it receives.
+const wss = new WebSocketServer({ noServer: true });
+
+server.on('upgrade', (req, socket, head) => {
+  const { pathname } = new URL(req.url, 'http://localhost');
+  if (pathname === '/agent/converse') {
+    wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
+  } else if (viteProxy) {
+    // Vite HMR socket in development
+    viteProxy.upgrade(req, socket, head);
+  } else {
+    socket.destroy();
+  }
 });
 
 // Handle WebSocket connections
@@ -296,18 +316,6 @@ wss.on('connection', async (clientWs) => {
           } else if (message.type === 'InjectUserMessage') {
             // Use SDK method for injecting user messages
             deepgramAgent.injectUserMessage(message.content);
-          } else if (message.type === 'InjectAgentContext') {
-            // Handle agent context injection - send as raw message
-            // Wrap in try-catch to prevent disconnection on errors
-            try {
-              // Send as JSON string - this should work based on other usage in the codebase
-              deepgramAgent.send(JSON.stringify(message));
-              console.log('Agent context injected successfully');
-            } catch (contextError) {
-              console.error('Error injecting agent context (non-fatal):', contextError);
-              // Don't disconnect - just log the error and continue
-              // The connection should remain open even if context injection fails
-            }
           } else {
             // Forward other JSON messages as-is (send as string, not buffer)
             try {

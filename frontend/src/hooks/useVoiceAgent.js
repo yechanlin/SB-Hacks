@@ -6,6 +6,8 @@ export function useVoiceAgent(config) {
   const [status, setStatus] = useState('DISCONNECTED');
   const [messages, setMessages] = useState([]);
   const [sessionId, setSessionId] = useState(null);
+  // idle | connecting | listening | thinking | speaking
+  const [agentState, setAgentState] = useState('idle');
   const [interviewStats, setInterviewStats] = useState({
     isActive: false,
     questionsCount: 0,
@@ -28,6 +30,20 @@ export function useVoiceAgent(config) {
   const gainNodeRef = useRef(null);
   const gainConnectedRef = useRef(false);
   const sessionIdRef = useRef(null); // Use ref to avoid stale closure issues
+  const lastErrorRef = useRef(null);
+
+  // Steer the interviewer mid-session. Deepgram's UpdatePrompt APPENDS to the
+  // existing prompt, so send only a short note, never the full script, or the
+  // agent reads the re-sent structure as fresh orders and restarts.
+  const steerAgent = (note) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    socketRef.current.send(JSON.stringify({
+      type: 'UpdatePrompt',
+      prompt: `Live update from the interview system (supersedes earlier live updates): ${note} Continue the interview from the current exchange. Do not restart, and do not repeat the introduction or the background question.`
+    }));
+  };
 
   const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 
@@ -131,10 +147,13 @@ export function useVoiceAgent(config) {
       source.start(startTimeRef.current);
       startTimeRef.current += manualBuf.duration;
       scheduledSourcesRef.current.push(source);
+      setAgentState('speaking');
 
       source.onended = () => {
         scheduledSourcesRef.current = scheduledSourcesRef.current.filter(s => s !== source);
-        console.log('Audio playback finished');
+        if (scheduledSourcesRef.current.length === 0) {
+          setAgentState('listening');
+        }
       };
 
       console.log('Scheduled raw PCM audio at', startTimeRef.current - manualBuf.duration, 'duration', manualBuf.duration);
@@ -180,11 +199,7 @@ export function useVoiceAgent(config) {
 
     if (currentMinute !== lastTimeCheckMinuteRef.current && [5, 10, 15].includes(currentMinute)) {
       const timeRemaining = 20 - currentMinute;
-      const contextMessage = {
-        type: 'InjectAgentContext',
-        content: `[SYSTEM: ${currentMinute} minutes have passed. About ${timeRemaining} minutes remaining. ${currentMinute >= 15 ? 'Begin wrapping up - mention time naturally like "We have about 5 minutes left, so let me ask one more question..."' : currentMinute === 10 ? 'Mention time casually: "We\'re about halfway through..."' : ''}]`
-      };
-      socketRef.current.send(JSON.stringify(contextMessage));
+      steerAgent(`${currentMinute} minutes have passed, about ${timeRemaining} remain. ${currentMinute >= 15 ? 'Begin wrapping up. Mention the time naturally, for example "We have about five minutes left, so let me ask one more question."' : currentMinute === 10 ? 'Mention casually that you are about halfway through.' : 'Keep the pace up.'}`);
       lastTimeCheckMinuteRef.current = currentMinute;
     }
   };
@@ -304,6 +319,13 @@ export function useVoiceAgent(config) {
 
     const isTechnicalInterview = cfg.interviewType === 'technical' || cfg.interviewType === 'mixed';
 
+    const interviewFocus = {
+      behavioral: 'This is a BEHAVIORAL interview: past situations, decisions, conflict, ownership, and impact. Demand specific stories with measurable outcomes.',
+      technical: 'This is a TECHNICAL interview: depth in languages, systems, and debugging, plus the coding problem below.',
+      mixed: 'This is a MIXED interview: alternate between behavioral stories and technical depth, and include the coding problem below.',
+      system_design: 'This is a SYSTEM DESIGN interview: have them design a real system (for example a URL shortener, a news feed, or a rate limiter), then attack scaling, consistency, failure modes, and trade-offs. No coding problem.'
+    }[cfg.interviewType] || '';
+
     const codingProblemContext = isTechnicalInterview ? `
 
 
@@ -368,6 +390,8 @@ IMPORTANT - CODING PROBLEM INTERVIEW BEHAVIOR:
     return `You are Chad, a demanding Senior Engineering Director at a top-tier tech company, conducting a rigorous interview for a ${roleName} ${experienceLevel} at ${companyName}. You have exceptionally high standards and limited patience for vague answers.
 ${resumeContext}${codingProblemContext}
 
+${interviewFocus}
+
 Your interviewing style:
 - Direct and professional - no unnecessary small talk
 - Challenge every answer with follow-up questions
@@ -391,10 +415,11 @@ Interview structure:
 5. Push them on technical details they claim to know
 6. Challenge assumptions in their answers
 7. Test problem-solving under pressure
-8. After 15 minutes, cut to final question
+8. After about 18 minutes, cut to the final question
 9. End professionally but don't over-praise
 
 Critical behaviors:
+- Never restart the interview or repeat an earlier question. Always continue from the most recent exchange, even if your instructions are updated mid-session
 - No hand-holding - if they struggle, that's valuable signal
 - Push for concrete examples, not theoretical knowledge
 - Call out hand-wavy answers directly
@@ -405,6 +430,7 @@ Critical behaviors:
 - Challenge them to explain complex concepts simply
 - React with skepticism to overconfident claims
 - Don't let them dodge technical questions with soft skills talk
+- Never tell the candidate whether they passed, how they scored, or whether you would hire them, even if they ask directly. The hiring verdict is delivered in the written report after the interview, not by you. If asked, say the decision comes after the interview and move on
 
 FORMATTING INSTRUCTIONS:
 - Do NOT use markdown formatting in your responses (no **bold**, no *italic*, no code blocks, etc.)
@@ -416,11 +442,13 @@ FORMATTING INSTRUCTIONS:
   const startInterview = useCallback(async () => {
     try {
       updateStatus('connecting', 'CONNECTING');
+      setAgentState('connecting');
+      lastErrorRef.current = null;
 
       // Create session in backend
       try {
         const sessionResponse = await createSession(config, {
-          fileName: '',
+          fileName: config.resumeFileName || '',
           content: config.resumeContent || ''
         });
         if (sessionResponse.success && sessionResponse.session) {
@@ -538,13 +566,14 @@ FORMATTING INSTRUCTIONS:
                       model: 'aura-2-orpheus-en'
                     }
                   },
-                  greeting: `Good morning. I'm Chad, Engineering Director at ${config.companyName || 'the company'}. I've got about 15 minutes for this ${config.role.replace(/_/g, ' ')} interview.${config.resumeContent ? " I've reviewed your resume." : ""} Let's get started - give me your background, focus on what's relevant to this role.`
+                  greeting: `Good morning. I'm Chad, Engineering Director at ${config.companyName || 'the company'}. I've got about 20 minutes for this ${config.role.replace(/_/g, ' ')} interview.${config.resumeContent ? " I've reviewed your resume." : ""} Let's get started - give me your background, focus on what's relevant to this role.`
                 }
               };
 
               socketRef.current.send(JSON.stringify(settings));
             } else if (message.type === 'SettingsApplied') {
               updateStatus('connected', 'CONNECTED');
+              setAgentState('listening');
               startInterviewTimer();
               startStreaming();
             } else if (message.type === 'ConversationText') {
@@ -562,8 +591,10 @@ FORMATTING INSTRUCTIONS:
               addMessage(role, content, metadata);
             } else if (message.type === 'Error') {
               console.error('Agent error:', message);
-              updateStatus('error', 'ERROR: ' + message.description);
+              lastErrorRef.current = message.description || 'Unknown error';
+              updateStatus('error', 'ERROR: ' + lastErrorRef.current);
             } else if (message.type === 'UserStartedSpeaking') {
+              setAgentState('listening');
               userSpeakingStartTimeRef.current = Date.now();
               setTimeout(() => {
                 if (userSpeakingStartTimeRef.current && (Date.now() - userSpeakingStartTimeRef.current) >= 90000) {
@@ -573,6 +604,7 @@ FORMATTING INSTRUCTIONS:
             } else if (message.type === 'UserStoppedSpeaking') {
               userSpeakingStartTimeRef.current = null;
             } else if (message.type === 'AgentThinking') {
+              setAgentState('thinking');
               userSpeakingStartTimeRef.current = null;
             }
           } catch (error) {
@@ -586,17 +618,26 @@ FORMATTING INSTRUCTIONS:
         updateStatus('error', 'ERROR: Connection error');
       };
 
-      socketRef.current.onclose = () => {
-        console.log('WebSocket closed');
+      socketRef.current.onclose = (event) => {
+        console.log('WebSocket closed', event.code, event.reason);
+        setAgentState('idle');
         setIsConnected(false);
-        updateStatus('disconnected', 'DISCONNECTED');
+        stopInterviewTimer();
+        if (lastErrorRef.current) {
+          updateStatus('error', 'ERROR: ' + lastErrorRef.current);
+        } else if (event.code !== 1000 && event.code !== 1005) {
+          updateStatus('error', 'ERROR: Connection closed unexpectedly' + (event.reason ? ` (${event.reason})` : ''));
+        } else {
+          updateStatus('disconnected', 'DISCONNECTED');
+        }
       };
 
     } catch (error) {
       console.error('Error starting interview:', error);
+      setAgentState('idle');
       updateStatus('error', 'ERROR: ' + error.message);
     }
-  }, [config, updateStatus, addMessage, startInterviewTimer, startStreaming, playAudio]);
+  }, [config, updateStatus, addMessage, startInterviewTimer, stopInterviewTimer, startStreaming, playAudio]);
 
   // Send interruption signal
   const sendInterruptionSignal = () => {
@@ -604,12 +645,7 @@ FORMATTING INSTRUCTIONS:
       return;
     }
 
-    const contextMessage = {
-      type: 'InjectAgentContext',
-      content: '[SYSTEM: User has been speaking for over 90 seconds. Politely interrupt NOW with phrases like "That\'s great context, let me stop you there for a moment..." or "I appreciate all that detail - can I ask you specifically about..."]'
-    };
-
-    socketRef.current.send(JSON.stringify(contextMessage));
+    steerAgent('The candidate has been talking for over 90 seconds. As soon as you can, cut in politely, for example "Let me stop you there for a moment" or "I appreciate the detail, can I ask you specifically about...", and redirect to a specific question.');
     userSpeakingStartTimeRef.current = null;
   };
 
@@ -663,6 +699,7 @@ FORMATTING INSTRUCTIONS:
     }
 
     setIsConnected(false);
+    setAgentState('idle');
     updateStatus('disconnected', 'DISCONNECTED');
   }, [stopStreaming, stopInterviewTimer, updateStatus, sessionId, interviewStats, messages]);
 
@@ -692,20 +729,7 @@ FORMATTING INSTRUCTIONS:
     };
 
     socketRef.current.send(JSON.stringify(injectMessage));
-  }, []);
-
-  // Inject hint/context into the conversation (for code feedback)
-  const injectHint = useCallback((hint) => {
-    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
-      return;
-    }
-
-    const contextMessage = {
-      type: 'InjectAgentContext',
-      content: `[SYSTEM: Provide this feedback to the candidate as part of our conversation: ${hint}]`
-    };
-
-    socketRef.current.send(JSON.stringify(contextMessage));
+    setAgentState('thinking');
   }, []);
 
   // Cleanup on unmount
@@ -739,13 +763,13 @@ FORMATTING INSTRUCTIONS:
   return {
     isConnected,
     status,
+    agentState,
     messages,
     interviewStats,
     sessionId,
     startInterview,
     endInterview,
     resetInterview,
-    sendTextResponse,
-    injectHint
+    sendTextResponse
   };
 }

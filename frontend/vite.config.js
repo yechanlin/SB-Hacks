@@ -8,6 +8,12 @@ export default defineConfig({
     port: 5173,
     open: false,
     host: true,
+    // Forward API and WebSocket traffic to Express so the app also works
+    // when opened directly on the Vite port during development.
+    proxy: {
+      '/api': 'http://localhost:3000',
+      '/agent': { target: 'ws://localhost:3000', ws: true }
+    },
     fs: {
       // Allow serving files from monaco-editor
       allow: ['..']
