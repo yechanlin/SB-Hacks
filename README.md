@@ -80,6 +80,25 @@ pnpm start
 
 Open [http://localhost:3000](http://localhost:3000) in your browser. Use port 3000, not the Vite port printed in the terminal: the Express server on 3000 serves the UI and hosts the WebSocket and API.
 
+## Deployment
+
+The app is a single long-lived Node process: Express serves the built frontend, hosts the REST API, and proxies the Deepgram voice-agent WebSocket. It needs a host that keeps WebSocket connections open, so serverless-only platforms (Vercel functions, Netlify functions) will not run the interview. Render, Railway, and Fly.io all work.
+
+**Render (one click)**
+
+1. Push the repo and create a new Blueprint in Render pointing at it. `render.yaml` defines the service, which builds from the `Dockerfile`.
+2. In the service's Environment tab set `DEEPGRAM_API_KEY`, `OPENAI_API_KEY`, and `MONGODB_URI` (a free MongoDB Atlas cluster works; allow access from `0.0.0.0/0` or Render's outbound IPs).
+3. Render checks `/healthz` and serves the app on the URL it assigns. Voice mode needs HTTPS for the microphone, which Render provides by default.
+
+**Any Docker host**
+
+```bash
+docker build -t rehearse .
+docker run -p 3000:3000 \
+  -e DEEPGRAM_API_KEY=... -e OPENAI_API_KEY=... -e MONGODB_URI=... \
+  rehearse
+```
+
 ## Tech Stack
 
 - **Frontend**: React 19, Vite 7, Tailwind CSS v4, Monaco editor

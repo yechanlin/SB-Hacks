@@ -58,6 +58,11 @@ app.use(express.urlencoded({ extended: true }));
 // API Routes - Mount BEFORE proxy to avoid proxying API requests
 app.use('/api/sessions', sessionsRouter);
 
+// Health check for hosting platforms
+app.get('/healthz', (req, res) => {
+  res.json({ ok: true });
+});
+
 // Coding problem shown in the editor during technical interviews
 app.get('/api/problem', (req, res) => {
   res.json(PROBLEMS[DEFAULT_PROBLEM_ID]);
