@@ -319,6 +319,13 @@ export function useVoiceAgent(config) {
 
     const isTechnicalInterview = cfg.interviewType === 'technical' || cfg.interviewType === 'mixed';
 
+    const interviewFocus = {
+      behavioral: 'This is a BEHAVIORAL interview: past situations, decisions, conflict, ownership, and impact. Demand specific stories with measurable outcomes.',
+      technical: 'This is a TECHNICAL interview: depth in languages, systems, and debugging, plus the coding problem below.',
+      mixed: 'This is a MIXED interview: alternate between behavioral stories and technical depth, and include the coding problem below.',
+      system_design: 'This is a SYSTEM DESIGN interview: have them design a real system (for example a URL shortener, a news feed, or a rate limiter), then attack scaling, consistency, failure modes, and trade-offs. No coding problem.'
+    }[cfg.interviewType] || '';
+
     const codingProblemContext = isTechnicalInterview ? `
 
 
@@ -382,6 +389,8 @@ IMPORTANT - CODING PROBLEM INTERVIEW BEHAVIOR:
 
     return `You are Chad, a demanding Senior Engineering Director at a top-tier tech company, conducting a rigorous interview for a ${roleName} ${experienceLevel} at ${companyName}. You have exceptionally high standards and limited patience for vague answers.
 ${resumeContext}${codingProblemContext}
+
+${interviewFocus}
 
 Your interviewing style:
 - Direct and professional - no unnecessary small talk

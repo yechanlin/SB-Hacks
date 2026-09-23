@@ -16,7 +16,7 @@ const sessionSchema = new mongoose.Schema({
     companyName: String,
     interviewType: {
       type: String,
-      enum: ['behavioral', 'technical', 'mixed'],
+      enum: ['behavioral', 'technical', 'mixed', 'system_design'],
       default: 'behavioral'
     },
     difficulty: {
